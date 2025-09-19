@@ -3,38 +3,45 @@ import { setupWorker as setupMockServiceWorkerFactory } from "msw/browser";
 import { handlers as mockRequestHandlerList } from "./handlers.js";
 import { seedIfEmpty as seedDatabaseIfMissing } from "../../lib/db.js";
 
-// HOLDS THE SINGLETON WORKER INSTANCE ACROSS THE SESSION
+// Singleton across the session
 let mockServiceWorkerInstance;
-
-// GUARD FLAG TO PREVENT MULTIPLE INITIALIZATIONS IN THE SAME SESSION
 let hasMockServiceWorkerStarted = false;
 
+/**
+ * Start MSW in any environment when explicitly enabled via env:
+ *   VITE_ENABLE_MSW = "1"
+ * This allows production deploys (Vercel) to use mock data.
+ */
 export async function startMSW() {
-  // GUARDED EARLY-EXIT: RUNS ONLY ONCE AND ONLY IN DEVELOPMENT BUILDS
-  if (hasMockServiceWorkerStarted || !import.meta.env.DEV) return;
+  // Only run in the browser
+  if (typeof window === "undefined") return;
+
+  // Explicit feature flag for ALL envs (dev/preview/prod)
+  const isEnabled = import.meta.env.VITE_ENABLE_MSW === "1";
+
+  // Guard: already started or not enabled → do nothing
+  if (hasMockServiceWorkerStarted || !isEnabled) return;
   hasMockServiceWorkerStarted = true;
 
   try {
-    // ENSURE THE LOCAL DB HAS STARTER DATA BEFORE THE WORKER INTERCEPTS REQUESTS
-    await seedDatabaseIfMissing();
+    // Seed local DB before intercepting requests (if your app needs it)
+    if (typeof seedDatabaseIfMissing === "function") {
+      await seedDatabaseIfMissing();
+    }
 
-    // CREATE A NEW WORKER USING THE PROVIDED REQUEST HANDLERS
-    mockServiceWorkerInstance = setupMockServiceWorkerFactory(...mockRequestHandlerList);
+    // Create worker with your handlers
+    mockServiceWorkerInstance = setupMockServiceWorkerFactory(
+      ...mockRequestHandlerList
+    );
 
-    // START THE WORKER WITH SANE DEFAULTS FOR LOCAL DEV ENVIRONMENTS
+    // IMPORTANT: point to the worker served from /public on Vercel
     await mockServiceWorkerInstance.start({
-      // ALLOW NON-MOCKED REQUESTS TO PASS THROUGH SO THE APP DOESN'T BREAK
+      serviceWorker: { url: "/mockServiceWorker.js" },
       onUnhandledRequest: "bypass",
-      // VITE SERVES THE SERVICE WORKER FROM THE PUBLIC ROOT; SPECIFY THE PATH EXPLICITLY
-      serviceWorker: {
-        url: "/mockServiceWorker.js",
-      },
     });
 
-    // FRIENDLY CONSOLE SIGNAL TO CONFIRM THE WORKER IS ACTIVE
-    console.info("[MSW] Service worker started");
-  } catch (initializationError) {
-    // NON-FATAL: LOG AND CONTINUE WITHOUT MOCKS IF SOMETHING GOES WRONG
-    console.warn("[MSW] Failed to start mock service worker:", initializationError);
+    console.info("[MSW] Service worker started (env-flag enabled)");
+  } catch (err) {
+    console.warn("[MSW] Failed to start mock service worker:", err);
   }
 }
