@@ -1,3 +1,4 @@
+// api/mock/mirage/server.js
 import { createServer, Model, Factory, Response } from "miragejs";
 
 export function startMirage() {
