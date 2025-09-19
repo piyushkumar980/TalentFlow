@@ -371,5 +371,3 @@ html, body, #root { height: 100%; }
 .dark-mode .bg-slate-100 {
   background-color: #334155 !important; /* slate-700 */
 }
-
-/* Add any other specific dark mode overrides you need
