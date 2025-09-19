@@ -1,373 +1,149 @@
-﻿You can keep this minimal when using the Tailwind CDN */
+﻿/* src/index.css
+   Tailwind CDN friendly (no @tailwind / @apply). Dark mode via:
+   - html.dark (Tailwind's dark selector)
+   - or body.dark-mode (your custom toggle)
+*/
+
+/* Base / resets */
 :root { color-scheme: light; }
 * { box-sizing: border-box; }
 html, body, #root { height: 100%; }
 
-/* Dark mode styles */
-.dark-mode {
+/* ---------------------------
+   DARK MODE BASE
+   Works if you add either:
+   - document.documentElement.classList.add('dark')  (Tailwind dark)
+   - document.body.classList.add('dark-mode')        (your custom)
+----------------------------*/
+
+/* Background + text on page chrome */
+html.dark, 
+body.dark-mode {
   background-color: #0f172a !important; /* slate-900 */
+  color: #f1f5f9 !important;            /* slate-100 */
+}
+
+/* Make most text readable in dark */
+html.dark *, 
+body.dark-mode * {
+  color: #e2e8f0 !important; /* slate-200 (slightly dimmer than white) */
+}
+
+/* Stronger foreground for headings/titles */
+html.dark h1, html.dark h2, html.dark h3,
+html.dark h4, html.dark h5, html.dark h6,
+body.dark-mode h1, body.dark-mode h2, body.dark-mode h3,
+body.dark-mode h4, body.dark-mode h5, body.dark-mode h6 {
   color: #f1f5f9 !important; /* slate-100 */
 }
 
-/* Force all black text to become white in dark mode */
-.dark-mode,
-.dark-mode * {
-  color: #f1f5f9 !important; /* Force white text everywhere */
-}
-
-/* Specific overrides for different text shades */
-.dark-mode .text-black,
-.dark-mode .text-gray-900,
-.dark-mode .text-gray-800,
-.dark-mode .text-gray-700,
-.dark-mode .text-slate-900,
-.dark-mode .text-slate-800,
-.dark-mode .text-slate-700 {
-  color: #f1f5f9 !important; /* slate-100 (white) */
-}
-
-.dark-mode .text-gray-600,
-.dark-mode .text-gray-500,
-.dark-mode .text-slate-600,
-.dark-mode .text-slate-500 {
-  color: #cbd5e1 !important; /* slate-400 (lighter gray) */
-}
-
-.dark-mode .text-gray-400,
-.dark-mode .text-gray-300,
-.dark-mode .text-slate-400,
-.dark-mode .text-slate-300 {
-  color: #94a3b8 !important; /* slate-500 (medium gray) */
-}
-
-/* Background overrides (keep your existing ones) */
-.dark-mode .bg-white {
-  background-color: #1e293b !important; /* slate-800 */
-}
-
-.dark-mode .border-slate-200 {
-  border-color: #334155 !important; /* slate-700 */
-}
-
-.dark-mode .bg-slate-100 {
-  background-color: #334155 !important; /* slate-700 */
-}
-
-.dark-mode .bg-slate-50 {
-  background-color: #1e293b !important; /* slate-800 */
-}
-
-.dark-mode .hover\:bg-slate-50:hover {
-  background-color: #334155 !important; /* slate-700 */
-}
-
-.dark-mode .hover\:text-slate-800:hover {
+/* Override common Tailwind text utilities that look too dark in dark mode */
+html.dark .text-black,             body.dark-mode .text-black,
+html.dark .text-gray-900,          body.dark-mode .text-gray-900,
+html.dark .text-gray-800,          body.dark-mode .text-gray-800,
+html.dark .text-gray-700,          body.dark-mode .text-gray-700,
+html.dark .text-slate-900,         body.dark-mode .text-slate-900,
+html.dark .text-slate-800,         body.dark-mode .text-slate-800,
+html.dark .text-slate-700,         body.dark-mode .text-slate-700 {
   color: #f1f5f9 !important; /* slate-100 */
 }
 
-/* Add any other specific dark mode overrides you need */
-/* Ensure all text flips to white in dark mode */
-.dark-mode, 
-.dark-mode body, 
-.dark-mode #root {
-  color: #f1f5f9 !important; /* slate-100 */
+html.dark .text-gray-600,          body.dark-mode .text-gray-600,
+html.dark .text-gray-500,          body.dark-mode .text-gray-500,
+html.dark .text-slate-600,         body.dark-mode .text-slate-600,
+html.dark .text-slate-500,         body.dark-mode .text-slate-500 {
+  color: #cbd5e1 !important; /* slate-300/400 */
 }
 
-/* Override Tailwind's black utility */
-.dark-mode .text-black,
-.dark-mode .text-slate-900 {
-  color: #f1f5f9 !important;
-}
-/* src/index.css */
-/* Add these styles to your existing index.css */
-
-/* Dark mode styles */
-.dark-mode {
-  background-color: #0f172a !important; /* slate-900 */
-  color: #f1f5f9 !important; /* slate-100 */
-}
-
-/* Universal selector to force all text to white in dark mode */
-.dark-mode,
-.dark-mode * {
-  color: #f1f5f9 !important;
-}
-
-/* Specific element targeting for text */
-.dark-mode p,
-.dark-mode h1,
-.dark-mode h2,
-.dark-mode h3,
-.dark-mode h4,
-.dark-mode h5,
-.dark-mode h6,
-.dark-mode span,
-.dark-mode div,
-.dark-mode a,
-.dark-mode li,
-.dark-mode td,
-.dark-mode th,
-.dark-mode label,
-.dark-mode input,
-.dark-mode textarea,
-.dark-mode select,
-.dark-mode button,
-.dark-mode strong,
-.dark-mode em,
-.dark-mode small,
-.dark-mode blockquote,
-.dark-mode cite,
-.dark-mode figcaption {
-  color: #f1f5f9 !important; /* slate-100 (white) */
-}
-
-/* Specific overrides for different text shades */
-.dark-mode .text-black,
-.dark-mode .text-gray-900,
-.dark-mode .text-gray-800,
-.dark-mode .text-gray-700,
-.dark-mode .text-slate-900,
-.dark-mode .text-slate-800,
-.dark-mode .text-slate-700 {
-  color: #f1f5f9 !important; /* slate-100 (white) */
-}
-
-.dark-mode .text-gray-600,
-.dark-mode .text-gray-500,
-.dark-mode .text-slate-600,
-.dark-mode .text-slate-500 {
-  color: #cbd5e1 !important; /* slate-400 (lighter gray) */
-}
-
-.dark-mode .text-gray-400,
-.dark-mode .text-gray-300,
-.dark-mode .text-slate-400,
-.dark-mode .text-slate-300 {
-  color: #94a3b8 !important; /* slate-500 (medium gray) */
-}
-
-/* Background overrides */
-.dark-mode .bg-white {
-  background-color: #1e293b !important; /* slate-800 */
-}
-
-.dark-mode .border-slate-200 {
-  border-color: #334155 !important; /* slate-700 */
-}
-
-.dark-mode .bg-slate-100 {
-  background-color: #334155 !important; /* slate-700 */
-}
-
-.dark-mode .bg-slate-50 {
-  background-color: #1e293b !important; /* slate-800 */
-} 
-
-.dark-mode .hover\:bg-slate-50:hover {
-  background-color: #334155 !important; /* slate-700 */
-}
-
-.dark-mode .hover\:text-slate-800:hover {
-  color: #f1f5f9 !important; /* slate-100 */
-}
-
-/* Form elements specific styling */
-.dark-mode input::placeholder,
-.dark-mode textarea::placeholder {
+html.dark .text-gray-400,          body.dark-mode .text-gray-400,
+html.dark .text-gray-300,          body.dark-mode .text-gray-300,
+html.dark .text-slate-400,         body.dark-mode .text-slate-400,
+html.dark .text-slate-300,         body.dark-mode .text-slate-300 {
   color: #94a3b8 !important; /* slate-500 */
 }
 
-.dark-mode input,
-.dark-mode textarea,
-.dark-mode select {
+/* ---------------------------
+   SURFACE / BORDER OVERRIDES
+----------------------------*/
+html.dark .bg-white,                body.dark-mode .bg-white,
+html.dark .bg-slate-50,             body.dark-mode .bg-slate-50 {
   background-color: #1e293b !important; /* slate-800 */
-  border-color: #334155 !important; /* slate-700 */
-  color: #f1f5f9 !important; /* slate-100 */
 }
 
-/* Button specific styling */
-.dark-mode button {
-  color: #f1f5f9 !important; /* Ensure button text is white */
+html.dark .bg-slate-100,            body.dark-mode .bg-slate-100 {
+  background-color: #334155 !important; /* slate-700 */
 }
 
-/* Link specific styling */
-.dark-mode a {
-  color: #93c5fd !important; /* light blue for better visibility */
+html.dark .border-slate-200,        body.dark-mode .border-slate-200 {
+  border-color: #334155 !important;     /* slate-700 */
 }
 
-.dark-mode a:hover {
-  color: #bfdbfe !important; /* lighter blue on hover */
+/* Hover treatments commonly used in your UI */
+html.dark .hover\:bg-slate-50:hover,     body.dark-mode .hover\:bg-slate-50:hover {
+  background-color: #334155 !important;  /* slate-700 */
+}
+html.dark .hover\:text-slate-800:hover,  body.dark-mode .hover\:text-slate-800:hover {
+  color: #f1f5f9 !important;             /* slate-100 */
 }
 
-/* Add any other specific dark mode overrides you need */
-/* src/index.css */
-/* Add these styles to your existing index.css */
-
-/* Dark mode styles */
-.dark-mode {
-  background-color: #0f172a !important; /* slate-900 */
-  color: #f1f5f9 !important; /* slate-100 */
-}
-
-/* Universal selector to force all text to white in dark mode */
-.dark-mode,
-.dark-mode * {
-  color: #f1f5f9 !important;
-}
-
-/* Specific element targeting for text */
-.dark-mode p,
-.dark-mode h1,
-.dark-mode h2,
-.dark-mode h3,
-.dark-mode h4,
-.dark-mode h5,
-.dark-mode h6,
-.dark-mode span,
-.dark-mode div,
-.dark-mode a,
-.dark-mode li,
-.dark-mode td,
-.dark-mode th,
-.dark-mode label,
-.dark-mode input,
-.dark-mode textarea,
-.dark-mode select,
-.dark-mode button,
-.dark-mode strong,
-.dark-mode em,
-.dark-mode small,
-.dark-mode blockquote,
-.dark-mode cite,
-.dark-mode figcaption {
-  color: #f1f5f9 !important; /* slate-100 (white) */
-}
-
-/* Specific overrides for different text shades */
-.dark-mode .text-black,
-.dark-mode .text-gray-900,
-.dark-mode .text-gray-800,
-.dark-mode .text-gray-700,
-.dark-mode .text-slate-900,
-.dark-mode .text-slate-800,
-.dark-mode .text-slate-700 {
-  color: #f1f5f9 !important; /* slate-100 (white) */
-}
-
-.dark-mode .text-gray-600,
-.dark-mode .text-gray-500,
-.dark-mode .text-slate-600,
-.dark-mode .text-slate-500 {
-  color: #cbd5e1 !important; /* slate-400 (lighter gray) */
-}
-
-.dark-mode .text-gray-400,
-.dark-mode .text-gray-300,
-.dark-mode .text-slate-400,
-.dark-mode .text-slate-300 {
-  color: #94a3b8 !important; /* slate-500 (medium gray) */
-}
-
-/* Status badges - Ensure they remain visible in dark mode */
-.dark-mode .bg-emerald-100 { background-color: #064e3b !important; } /* emerald-900 */
-.dark-mode .text-emerald-700 { color: #6ee7b7 !important; } /* emerald-300 */
-
-.dark-mode .bg-blue-100 { background-color: #1e3a8a !important; } /* blue-900 */
-.dark-mode .text-blue-700 { color: #93c5fd !important; } /* blue-300 */
-
-.dark-mode .bg-yellow-100 { background-color: #713f12 !important; } /* yellow-900 */
-.dark-mode .text-yellow-700 { color: #fde68a !important; } /* yellow-300 */
-
-.dark-mode .bg-purple-100 { background-color: #4c1d95 !important; } /* purple-900 */
-.dark-mode .text-purple-700 { color: #d8b4fe !important; } /* purple-300 */
-
-.dark-mode .bg-red-100 { background-color: #7f1d1d !important; } /* red-900 */
-.dark-mode .text-red-700 { color: #fca5a5 !important; } /* red-300 */
-
-.dark-mode .bg-green-100 { background-color: #14532d !important; } /* green-900 */
-.dark-mode .text-green-700 { color: #86efac !important; } /* green-300 */
-
-.dark-mode .bg-slate-100 { background-color: #1e293b !important; } /* slate-800 */
-.dark-mode .text-slate-700 { color: #cbd5e1 !important; } /* slate-400 */
-
-/* Candidate initials/avatars in dark mode */
-.dark-mode .bg-slate-200 { background-color: #334155 !important; } /* slate-700 */
-.dark-mode .text-slate-700 { color: #e2e8f0 !important; } /* slate-200 */
-
-/* Logo and other specific elements */
-.dark-mode img {
-  filter: brightness(0.9) contrast(1.1); /* Slightly brighten logos in dark mode */
-}
-
-/* Form elements specific styling */
-.dark-mode input::placeholder,
-.dark-mode textarea::placeholder {
+/* ---------------------------
+   FORMS
+----------------------------*/
+html.dark input::placeholder,       body.dark-mode input::placeholder,
+html.dark textarea::placeholder,    body.dark-mode textarea::placeholder {
   color: #94a3b8 !important; /* slate-500 */
 }
 
-.dark-mode input,
-.dark-mode textarea,
-.dark-mode select {
+html.dark input,                    body.dark-mode input,
+html.dark textarea,                 body.dark-mode textarea,
+html.dark select,                   body.dark-mode select {
   background-color: #1e293b !important; /* slate-800 */
-  border-color: #334155 !important; /* slate-700 */
-  color: #f1f5f9 !important; /* slate-100 */
+  border-color: #334155 !important;     /* slate-700 */
+  color: #f1f5f9 !important;            /* slate-100 */
 }
 
-/* Button specific styling */
-.dark-mode button {
-  color: #f1f5f9 !important; /* Ensure button text is white */
+/* Buttons */
+html.dark button,                   body.dark-mode button {
+  color: #f1f5f9 !important;            /* ensure readable text */
 }
 
-/* Link specific styling */
-.dark-mode a {
-  color: #93c5fd !important; /* light blue for better visibility */
+/* Links */
+html.dark a,                        body.dark-mode a {
+  color: #93c5fd !important;            /* blue-300 */
+}
+html.dark a:hover,                  body.dark-mode a:hover {
+  color: #bfdbfe !important;            /* blue-200 */
 }
 
-.dark-mode a:hover {
-  color: #bfdbfe !important; /* lighter blue on hover */
-}
+/* ---------------------------
+   STATUS BADGES (visibility)
+----------------------------*/
+html.dark .bg-emerald-100,          body.dark-mode .bg-emerald-100 { background-color: #064e3b !important; } /* emerald-900 */
+html.dark .text-emerald-700,        body.dark-mode .text-emerald-700 { color: #6ee7b7 !important; }          /* emerald-300 */
 
-/* Background overrides */
-.dark-mode .bg-white {
-  background-color: #1e293b !important; /* slate-800 */
-}
+html.dark .bg-blue-100,             body.dark-mode .bg-blue-100 { background-color: #1e3a8a !important; }    /* blue-900 */
+html.dark .text-blue-700,           body.dark-mode .text-blue-700 { color: #93c5fd !important; }             /* blue-300 */
 
-.dark-mode .border-slate-200 {
-  border-color: #334155 !important; /* slate-700 */
-}
+html.dark .bg-yellow-100,           body.dark-mode .bg-yellow-100 { background-color: #713f12 !important; }  /* yellow-900 */
+html.dark .text-yellow-700,         body.dark-mode .text-yellow-700 { color: #fde68a !important; }           /* yellow-300 */
 
-.dark-mode .bg-slate-50 {
-  background-color: #1e293b !important; /* slate-800 */
-}
+html.dark .bg-purple-100,           body.dark-mode .bg-purple-100 { background-color: #4c1d95 !important; }  /* purple-900 */
+html.dark .text-purple-700,         body.dark-mode .text-purple-700 { color: #d8b4fe !important; }           /* purple-300 */
 
-.dark-mode .hover\:bg-slate-50:hover {
-  background-color: #334155 !important; /* slate-700 */
-}
+html.dark .bg-red-100,              body.dark-mode .bg-red-100 { background-color: #7f1d1d !important; }     /* red-900 */
+html.dark .text-red-700,            body.dark-mode .text-red-700 { color: #fca5a5 !important; }              /* red-300 */
 
-.dark-mode .hover\:text-slate-800:hover {
-  color: #f1f5f9 !important; /* slate-100 */
-}
+html.dark .bg-green-100,            body.dark-mode .bg-green-100 { background-color: #14532d !important; }   /* green-900 */
+html.dark .text-green-700,          body.dark-mode .text-green-700 { color: #86efac !important; }            /* green-300 */
 
-/* Specific fixes for status text visibility */
-.dark-mode .bg-emerald-100.text-emerald-700,
-.dark-mode .bg-blue-100.text-blue-700,
-.dark-mode .bg-yellow-100.text-yellow-700,
-.dark-mode .bg-purple-100.text-purple-700,
-.dark-mode .bg-red-100.text-red-700,
-.dark-mode .bg-green-100.text-green-700,
-.dark-mode .bg-slate-100.text-slate-700 {
-  color: #e2e8f0 !important; /* Ensure text is visible on dark backgrounds */
-}
+html.dark .bg-slate-100,            body.dark-mode .bg-slate-100 { background-color: #1e293b !important; }   /* slate-800 */
+html.dark .text-slate-700,          body.dark-mode .text-slate-700 { color: #cbd5e1 !important; }            /* slate-400 */
 
-/* Card and container backgrounds */
-.dark-mode .bg-white {
-  background-color: #1e293b !important; /* slate-800 */
-}
+/* Avatars/initials */
+html.dark .bg-slate-200,            body.dark-mode .bg-slate-200 { background-color: #334155 !important; }   /* slate-700 */
+html.dark .text-slate-700,          body.dark-mode .text-slate-700 { color: #e2e8f0 !important; }            /* slate-200 */
 
-.dark-mode .bg-slate-50 {
-  background-color: #1e293b !important; /* slate-800 */
-}
-
-.dark-mode .bg-slate-100 {
-  background-color: #334155 !important; /* slate-700 */
+/* Logos/images: nudge visibility in dark */
+html.dark img,                      body.dark-mode img {
+  filter: brightness(0.9) contrast(1.08);
 }
