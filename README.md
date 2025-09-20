@@ -1,14 +1,25 @@
-TalentFlow — A Mini Hiring Platform (Front-End Only)
+# TalentFlow — A Mini Hiring Platform
+
+[![Live Demo](https://img.shields.io/badge/Live-Demo-informational)](https://talent-flow-85mj.vercel.app/)
+[![GitHub](https://img.shields.io/badge/GitHub-Repository-black)](https://github.com/piyushkumar980/TalentFlow)
+
+**Quick links:**
+
+* 🔗 **Live app:** [https://talent-flow-85mj.vercel.app/](https://talent-flow-85mj.vercel.app/)
+* 🗂️ **Repository:** [https://github.com/piyushkumar980/TalentFlow](https://github.com/piyushkumar980/TalentFlow)
 
 A polished, two-sided hiring app (HR + Jobseeker) built entirely on the front-end. TalentFlow ships with a simulated REST API (via MSW or MirageJS), local persistence (IndexedDB using Dexie/localForage), and role-based UI with conditional routes and tooltips. **No real backend is required.**
 
+---
 
 ## Table of contents
+
 * Demo flow
 * Feature matrix
 * Architecture
 * Data model
 * Mock API (MSW/MirageJS)
+
   * Endpoints
   * Example payloads
 * Seeding & persistence
@@ -19,6 +30,17 @@ A polished, two-sided hiring app (HR + Jobseeker) built entirely on the front-en
 * Project structure
 * Contributing
 * License
+
+Tech stack: React + Vite, Tailwind CSS, React Router, TanStack Query, Zustand; mock API via MSW/MirageJS with write-through IndexedDB (Dexie/localForage); deployed on Vercel.
+
+Built with: React (Vite) · Tailwind · React Router · TanStack Query · Zustand · MSW/MirageJS · IndexedDB (Dexie/localForage) · Vercel.
+
+Under the hood: React SPA powered by TanStack Query & Zustand, styled with Tailwind, mocked via MSW/MirageJS, persisted to IndexedDB via Dexie/localForage, bundled by Vite, hosted on Vercel.
+
+Stack summary: Front-end only — React + Tailwind, data via MSW/MirageJS, caching with TanStack Query, state with Zustand, local persistence (IndexedDB/Dexie), Vite build, Vercel deploy.
+
+What runs this: React 18, Vite, Tailwind, React Router, lucide-react icons, TanStack Query, Zustand, MSW/MirageJS, Dexie/localForage (IndexedDB), Vercel.
+
 
 ---
 
@@ -54,7 +76,7 @@ A polished, two-sided hiring app (HR + Jobseeker) built entirely on the front-en
 * **Messages:** Messages from companies.
 
 > ⚠️ **Session overlay mode**
-> On several pages (e.g., **HR Jobs & Assessments**, **JS Interviews**), user actions update the UI **without writing to IndexedDB**. These changes persist while navigating the app but revert on full page refresh. See details in [State, caching & error handling].
+> On several pages (e.g., **HR Jobs & Assessments**, **JS Interviews**), user actions update the UI **without writing to IndexedDB**. These changes persist while navigating the app but revert on full page refresh. See details in \[State, caching & error handling].
 
 ---
 
@@ -393,33 +415,32 @@ pnpm preview
 
 ## Project structure
 
-```
 src/
   api/
     services/
-      jobs.js           # listJobs, patchJob, reorderJob, etc. (calls fetch)
+      jobs.js
       candidates.js
       assessments.js
     mock/
       msw/
-        handlers.ts     # MSW route handlers
-        browser.ts      # worker setup
+        handlers.js      # MSW route handlers (JS)
+        browser.js       # MSW worker setup (JS)
       mirage/
-        server.ts       # Mirage server + routes
-      seed.ts           # seeding logic (25 jobs, 1000 candidates, ≥3 assessments)
+        server.js        # Mirage server + routes (JS)
+      seed.js            # seeding logic (25 jobs, 1000 candidates, ≥3 assessments)
       db/
-        dexie.ts        # IndexedDB schema + write-through helpers
+        dexie.js         # IndexedDB schema + write-through helpers
   components/
     common/Toasts.jsx
   pages/
     WelcomePage.jsx
     hr/
       Dashboard.jsx
-      JobsPage.jsx      # session overlay edits (UI-only)
+      JobsPage.jsx
       JobDetails.jsx
       CandidatesPage.jsx
       CandidateDetails.jsx
-      AssessmentsPage.jsx  # session overlay edits (UI-only)
+      AssessmentsPage.jsx
     jobseeker/
       Dashboard.jsx
       AssessmentsPage.jsx
@@ -427,15 +448,17 @@ src/
       ApplyPage.jsx
       ApplicationsPage.jsx
       SavedJobsPage.jsx
-      InterviewsPage.jsx   # session overlay edits (UI-only)
+      InterviewsPage.jsx
       MessagesPage.jsx
   store/
-    index.js            # toasts, theme, small global state (e.g., Zustand)
+    index.js             # toasts, theme, small global state (e.g., Zustand)
   router/
-    index.tsx           # route definitions
+    index.jsx            # route definitions (JSX)
   styles/
-    index.css           # Tailwind
-```
+    index.css
+  main.jsx               # app entry (conditional MSW/Mirage)
+  App.jsx
+
 
 ---
 
@@ -445,7 +468,7 @@ Pick **MSW** or **MirageJS**. Both expose identical behavior.
 
 ### MSW (browser)
 
-* `handlers.ts` defines `rest.get/post/patch/put` for all endpoints listed above.
+* `handlers.js` defines `rest.get/post/patch/put` for all endpoints listed above.
 * Each handler:
 
   * Reads/writes to **IndexedDB** via helper functions (Dexie/localForage).
@@ -454,18 +477,18 @@ Pick **MSW** or **MirageJS**. Both expose identical behavior.
 
 ### MirageJS (in-app)
 
-* `server.ts` declares models/factories and routes mirroring the API.
-* Seeds via `seed.ts` on boot.
+* `server.js` declares models/factories and routes mirroring the API.
+* Seeds via `seed.js` on boot.
 * For persistence across refresh, Mirage also **proxies through Dexie helpers** (so Mirage is the “network” facade; IndexedDB remains the DB).
 
 ### Write-through IndexedDB
 
 * Create/Update/Delete operations:
   0\. Apply mutation to **IndexedDB**.
+  1\. Respond with the updated resource.
 
-  1. Respond with the updated resource.
 * On app start, we **hydrate** from IndexedDB.
-  If no DB exists (first run), `seed.ts` populates data.
+  If no DB exists (first run), `seed.js` populates data.
 
 ---
 
@@ -515,3 +538,7 @@ PRs welcome! Helpful areas:
 * Make the **session overlay** toggleable per-page in the UI.
 
 ---
+
+## License
+
+MIT (or your preferred license).
