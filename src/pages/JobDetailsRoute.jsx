@@ -3,19 +3,19 @@ import React, { useMemo } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 
-/* DISPLAY-ONLY HELPERS*/
+/* ---------------- UTILITY FUNCTIONS ---------------- */
 
-// RETURN A BADGE COLOR BASED ON JOB STATUS (ACTIVE VS. NOT-ACTIVE)
-const getStatusPillClassName = (statusValue) =>
-  String(statusValue || "").toLowerCase() === "active"
+// Returns a badge style based on job status (active vs. inactive)
+const getStatusBadgeClass = (status) =>
+  (status || "").toLowerCase() === "active"
     ? "bg-emerald-100 text-emerald-700"
     : "bg-slate-100 text-slate-700";
 
-// PRODUCE THE MOST READABLE TITLE FOR A JOB (FALL BACKS INCLUDED)
-const deriveReadableJobTitle = (job) => job?.title || job?.role || "Job";
+// Returns a readable job title, falling back to role or generic "Job"
+const getJobTitle = (job) => job?.title || job?.role || "Job";
 
-// RENDER A SALARY RANGE STRING WHEN WE HAVE ENOUGH INFORMATION
-const formatSalaryRangeLabel = (job) => {
+// Returns a nicely formatted salary range string
+const getSalaryLabel = (job) => {
   const min = job?.minSalary;
   const max = job?.maxSalary;
   if (Number.isFinite(min) && Number.isFinite(max)) {
@@ -26,63 +26,51 @@ const formatSalaryRangeLabel = (job) => {
   return "";
 };
 
-/* 
-   PAGE 
-  */
+/* ---------------- MAIN COMPONENT ---------------- */
 
 export default function JobDetailsRoute() {
-  const { id } = useParams();
+  const { id } = useParams(); // Get job ID from URL
   const navigate = useNavigate();
   const location = useLocation();
 
-  // INFER VIEWER ROLE FROM URL WHEN EXPLICIT STATE IS MISSING
-  const inferredRoleFromPathname = location.pathname.startsWith("/jobseeker")
+  // Determine viewer role (jobseeker vs hr) from URL or state
+  const inferredRole = location.pathname.startsWith("/jobseeker")
     ? "jobseeker"
     : location.pathname.startsWith("/hr")
     ? "hr"
     : "unknown";
-  const viewerRole = location.state?.fromRole || inferredRoleFromPathname;
+  const viewerRole = location.state?.fromRole || inferredRole;
+  const viewerIsJobSeeker = viewerRole === "jobseeker";
 
-  // HONOR A TEMPORARY ARCHIVE FLAG PASSED FROM CALLER (UI-ONLY)
-  const archivedOverrideFlag = location.state?.archived;
+  // Optional archive flag passed from previous page (UI-only)
+  const archivedOverride = location.state?.archived;
 
-  // LOAD THE JOB DATA FOR THE GIVEN ID (READ-ONLY)
+  // Fetch job data from API
   const {
-    data: jobResponseData,
-    isLoading: isJobLoading,
-    isError: isJobErrored,
-    error: jobErrorObject,
+    data: jobData,
+    isLoading,
+    isError,
+    error,
   } = useQuery({
     queryKey: ["job", id],
     queryFn: async () => {
-      // FETCH JOB DETAILS FROM API ENDPOINT
       const res = await fetch(`/jobs/${id}`);
       if (!res.ok) throw new Error("Failed to load job");
       return res.json();
     },
   });
 
-  // NORMALIZE FIELDS FOR RENDERING
-  const jobRecord = jobResponseData || {};
-  const serverSaysArchived =
-    String(jobRecord.status || "").toLowerCase() === "archived";
+  // Normalize job record for easier rendering
+  const job = jobData || {};
+  const serverArchived = (job.status || "").toLowerCase() === "archived";
   const isArchived =
-    typeof archivedOverrideFlag === "boolean"
-      ? archivedOverrideFlag
-      : serverSaysArchived;
+    typeof archivedOverride === "boolean" ? archivedOverride : serverArchived;
+  const jobTitle = useMemo(() => getJobTitle(job), [job]);
 
-  const readableJobTitle = useMemo(
-    () => deriveReadableJobTitle(jobRecord),
-    [jobRecord]
-  );
-
-  const viewerIsJobSeeker = viewerRole === "jobseeker";
-
-  // LOADING STATE: SHOW A SIMPLE SKELETON LAYOUT
-  if (isJobLoading) {
+  /* ---------------- LOADING STATE ---------------- */
+  if (isLoading) {
     return (
       <div className="max-w-3xl mx-auto px-4 py-6">
-        {/* SHOW A LIGHTWEIGHT SKELETON TO INDICATE DATA IS IN FLIGHT */}
         <div className="animate-pulse space-y-3">
           <div className="h-9 w-48 bg-slate-200 rounded" />
           <div className="rounded-2xl bg-white border shadow-sm p-5 space-y-3">
@@ -98,8 +86,8 @@ export default function JobDetailsRoute() {
     );
   }
 
-  // ERROR STATE: ALLOW USER TO RETURN AND EXPLAIN WHAT WENT WRONG
-  if (isJobErrored) {
+  /* ---------------- ERROR STATE ---------------- */
+  if (isError) {
     return (
       <div className="max-w-3xl mx-auto px-4 py-6">
         <button
@@ -109,16 +97,16 @@ export default function JobDetailsRoute() {
           ← Back
         </button>
         <div className="mt-4 rounded-2xl bg-white border shadow-sm p-5 text-rose-600">
-          {jobErrorObject?.message || "Failed to load job."}
+          {error?.message || "Failed to load job."}
         </div>
       </div>
     );
   }
 
-  // HAPPY PATH: RENDER JOB DETAILS, WITH ROLE-AWARE ACTIONS
+  /* ---------------- MAIN JOB DETAILS ---------------- */
   return (
     <div className="max-w-3xl mx-auto px-4 py-6">
-      {/* SIMPLE HEADER WITH NAVIGATION AND CONTEXT */}
+      {/* Header with back button and viewer info */}
       <div className="flex items-center gap-2 mb-4">
         <button
           onClick={() => navigate(-1)}
@@ -127,40 +115,34 @@ export default function JobDetailsRoute() {
           ← Back
         </button>
         <div className="ml-2 text-xs text-slate-500">
-          Path: <code>{location.pathname}</code>{" "}
-          {viewerRole !== "unknown" ? `· viewed as ${viewerRole}` : ""}
+          Path: <code>{location.pathname}</code>
+          {viewerRole !== "unknown" ? ` · viewed as ${viewerRole}` : ""}
         </div>
       </div>
 
-      {/* MAIN CARD WITH JOB META AND ACTIONS */}
+      {/* Job card */}
       <div className="rounded-2xl bg-white border shadow-sm">
-        {/* TITLE ROW WITH STATUS PILL */}
+        {/* Title row with status badge */}
         <div className="flex items-center gap-3 px-5 py-4 border-b">
-          <div className="text-lg font-semibold text-slate-800">
-            {readableJobTitle}
-          </div>
-          <div className="ml-auto flex items-center gap-2">
+          <div className="text-lg font-semibold text-slate-800">{jobTitle}</div>
+          <div className="ml-auto">
             <span
-              className={`text-xs px-2 py-0.5 rounded-full ${getStatusPillClassName(
-                jobRecord.status
+              className={`text-xs px-2 py-0.5 rounded-full ${getStatusBadgeClass(
+                job.status
               )}`}
             >
-              {(jobRecord.status || "active").toUpperCase()}
+              {(job.status || "active").toUpperCase()}
             </span>
           </div>
         </div>
 
-        {/* BODY: COMPANY, LOCATION, DESCRIPTION, FACT GRID, TAGS, ACTIONS */}
+        {/* Body: company, location, description, facts, tags */}
         <div className="px-5 py-4 space-y-3">
-          {/* COMPANY + LOCATION + ARCHIVE FLAG */}
+          {/* Company, location, archive */}
           <div className="text-slate-600">
-            {jobRecord.company ? (
-              <span className="font-medium">{jobRecord.company}</span>
-            ) : null}
-            {jobRecord.company && (jobRecord.location || "").trim()
-              ? " · "
-              : ""}
-            {jobRecord.location || ""}
+            {job.company && <span className="font-medium">{job.company}</span>}
+            {job.company && job.location ? " · " : ""}
+            {job.location || ""}
             {isArchived && (
               <span className="ml-2 inline-flex items-center rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
                 Archived
@@ -168,45 +150,45 @@ export default function JobDetailsRoute() {
             )}
           </div>
 
-          {/* DESCRIPTION WHEN AVAILABLE */}
-          {jobRecord.description ? (
-            <p className="text-slate-700">{jobRecord.description}</p>
-          ) : null}
+          {/* Description */}
+          {job.description && (
+            <p className="text-slate-700">{job.description}</p>
+          )}
 
-          {/* QUICK FACTS GRID */}
+          {/* Quick facts grid */}
           <div className="grid grid-cols-2 gap-3 text-sm">
-            {(jobRecord.type || jobRecord.employmentType) && (
+            {(job.type || job.employmentType) && (
               <div className="rounded-lg border p-3">
                 <div className="text-slate-500">Employment</div>
-                <div>{jobRecord.type || jobRecord.employmentType}</div>
+                <div>{job.type || job.employmentType}</div>
               </div>
             )}
-            {jobRecord.level && (
+            {job.level && (
               <div className="rounded-lg border p-3">
                 <div className="text-slate-500">Level</div>
-                <div>{jobRecord.level}</div>
+                <div>{job.level}</div>
               </div>
             )}
-            {jobRecord.location && (
+            {job.location && (
               <div className="rounded-lg border p-3">
                 <div className="text-slate-500">Location</div>
-                <div>{jobRecord.location}</div>
+                <div>{job.location}</div>
               </div>
             )}
-            {formatSalaryRangeLabel(jobRecord) && (
+            {getSalaryLabel(job) && (
               <div className="rounded-lg border p-3">
                 <div className="text-slate-500">Salary Range</div>
-                <div>{formatSalaryRangeLabel(jobRecord)}</div>
+                <div>{getSalaryLabel(job)}</div>
               </div>
             )}
           </div>
 
-          {/* TAGS WHEN PRESENT */}
-          {(jobRecord.tags || []).length > 0 && (
+          {/* Tags */}
+          {job.tags?.length > 0 && (
             <div>
               <div className="font-semibold mb-1">Tags</div>
               <div className="flex gap-2 flex-wrap">
-                {jobRecord.tags.map((tag, idx) => (
+                {job.tags.map((tag, idx) => (
                   <span
                     key={`${tag}-${idx}`}
                     className="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-700"
@@ -218,19 +200,19 @@ export default function JobDetailsRoute() {
             </div>
           )}
 
-          {/* ROLE-AWARE ACTIONS (APPLY FOR JOBSEEKER, CLOSE/CANCEL FOR EVERYONE) */}
+          {/* Actions: Apply / Close */}
           <div className="flex items-center gap-2 pt-2">
             {viewerIsJobSeeker && !isArchived && (
               <button
                 onClick={() =>
-                  navigate(`/jobseeker/apply/${jobRecord.id}`, {
+                  navigate(`/jobseeker/apply/${job.id}`, {
                     state: {
                       job: {
-                        id: jobRecord.id,
-                        title: readableJobTitle,
-                        company: jobRecord.company || "",
-                        location: jobRecord.location || "",
-                        salary: formatSalaryRangeLabel(jobRecord),
+                        id: job.id,
+                        title: jobTitle,
+                        company: job.company || "",
+                        location: job.location || "",
+                        salary: getSalaryLabel(job),
                       },
                     },
                   })

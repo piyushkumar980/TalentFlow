@@ -2,17 +2,19 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { getAssessment, submitAssessment } from "../api/services/assessments.js";
+import {
+  getAssessment,
+  submitAssessment,
+} from "../api/services/assessments.js";
 
 export default function RunAssessmentPage() {
   // READ JOB ID FROM ROUTE PARAMS AND COERCE TO NUMBER
   const { id: routeJobIdParam } = useParams();
   const numericJobId = Number(routeJobIdParam);
 
- 
   // LOAD ASSESSMENT CONTENT FOR THE GIVEN JOB
   // BEHAVIOR: CALL SERVICE, HANDLE LOADING/ERROR STATES VIA REACT-QUERY
- 
+
   const {
     data: assessmentData,
     isLoading: isAssessmentLoading,
@@ -23,10 +25,9 @@ export default function RunAssessmentPage() {
     queryFn: () => getAssessment(numericJobId), // EXPECTS: { jobId, sections: [...] }
   });
 
-  
   // FLATTEN QUESTIONS INTO A LINEAR SEQUENCE FOR SIMPLE NEXT/PREV FLOW
   // BEHAVIOR: DECORATE EACH QUESTION WITH SECTION TITLE AND SEQUENCE INDEX
-  
+
   const FLATTENED_QUESTIONS = useMemo(() => {
     const sections = assessmentData?.sections || [];
     return sections.flatMap((section, sectionIdx) =>
@@ -40,7 +41,7 @@ export default function RunAssessmentPage() {
 
   // LOCAL STATE FOR ANSWERS, TIMER, CURRENT INDEX, AND SUMMARY
   // BEHAVIOR: TRACK USER PROGRESS UNTIL SUBMISSION
-  
+
   const [answersByQuestionId, setAnswersByQuestionId] = useState({}); // MAP: QUESTION.ID -> VALUE
   const [hasUserSubmitted, setHasUserSubmitted] = useState(false);
   const [scoringSummary, setScoringSummary] = useState(null); // { correct, wrong, skipped, total, percent, perTopic[] }
@@ -49,12 +50,15 @@ export default function RunAssessmentPage() {
   const [isFullscreenEngaged, setIsFullscreenEngaged] = useState(false);
   const hasTimerBeenInitializedRef = useRef(false);
 
-  
   // ESTIMATE TIMER AFTER QUESTIONS LOAD (~15S PER QUESTION, MIN 10M)
   // BEHAVIOR: UPDATE TIMER ONCE, BEFORE ANY SUBMISSION OCCURS
-  
+
   useEffect(() => {
-    if (!hasTimerBeenInitializedRef.current && FLATTENED_QUESTIONS.length > 0 && !hasUserSubmitted) {
+    if (
+      !hasTimerBeenInitializedRef.current &&
+      FLATTENED_QUESTIONS.length > 0 &&
+      !hasUserSubmitted
+    ) {
       hasTimerBeenInitializedRef.current = true;
       const suggestedDuration = Math.max(600, FLATTENED_QUESTIONS.length * 15);
       setSecondsRemaining(suggestedDuration);
@@ -103,9 +107,11 @@ export default function RunAssessmentPage() {
   }, [hasUserSubmitted]);
 
   useEffect(() => {
-    const handleFullscreenChange = () => setIsFullscreenEngaged(!!document.fullscreenElement);
+    const handleFullscreenChange = () =>
+      setIsFullscreenEngaged(!!document.fullscreenElement);
     document.addEventListener("fullscreenchange", handleFullscreenChange);
-    return () => document.removeEventListener("fullscreenchange", handleFullscreenChange);
+    return () =>
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
   }, []);
 
   // COUNTDOWN TIMER
@@ -130,7 +136,10 @@ export default function RunAssessmentPage() {
     setAnswersByQuestionId((prev) => {
       const prevArr = Array.isArray(prev[questionId]) ? prev[questionId] : [];
       if (prevArr.includes(optionValue)) {
-        return { ...prev, [questionId]: prevArr.filter((x) => x !== optionValue) };
+        return {
+          ...prev,
+          [questionId]: prevArr.filter((x) => x !== optionValue),
+        };
       }
       return { ...prev, [questionId]: [...prevArr, optionValue] };
     });
@@ -140,7 +149,10 @@ export default function RunAssessmentPage() {
   // BEHAVIOR: EVALUATE ALL ANSWERS; PRODUCE PER-TOPIC AND OVERALL STATS
   function computeScoringSummaryByTopic() {
     const statsByTopic = new Map(); // TOPIC -> { correct, wrong, skipped, total }
-    const normalize = (x) => String(x ?? "").trim().toLowerCase();
+    const normalize = (x) =>
+      String(x ?? "")
+        .trim()
+        .toLowerCase();
 
     let correctCount = 0;
     let wrongCount = 0;
@@ -148,7 +160,12 @@ export default function RunAssessmentPage() {
 
     FLATTENED_QUESTIONS.forEach((question) => {
       const topicKey = question.sectionTitle || "Section";
-      const bucket = statsByTopic.get(topicKey) || { correct: 0, wrong: 0, skipped: 0, total: 0 };
+      const bucket = statsByTopic.get(topicKey) || {
+        correct: 0,
+        wrong: 0,
+        skipped: 0,
+        total: 0,
+      };
       bucket.total += 1;
 
       const userAnswer = answersByQuestionId[question.id];
@@ -211,7 +228,10 @@ export default function RunAssessmentPage() {
       }
 
       // SHORT/LONG TEXT EXACT MATCH (CASE-INSENSITIVE) WHEN EXPECTED ANSWER PROVIDED
-      if ((question.type === "short" || question.type === "long") && typeof question.answer === "string") {
+      if (
+        (question.type === "short" || question.type === "long") &&
+        typeof question.answer === "string"
+      ) {
         if (normalize(userAnswer) === normalize(question.answer)) {
           correctCount += 1;
           bucket.correct += 1;
@@ -230,7 +250,10 @@ export default function RunAssessmentPage() {
     });
 
     const totalQuestions = FLATTENED_QUESTIONS.length;
-    const overallPercent = totalQuestions > 0 ? Math.round((correctCount / totalQuestions) * 100) : 0;
+    const overallPercent =
+      totalQuestions > 0
+        ? Math.round((correctCount / totalQuestions) * 100)
+        : 0;
 
     const perTopic = Array.from(statsByTopic.entries()).map(([topic, v]) => ({
       topic,
@@ -238,7 +261,14 @@ export default function RunAssessmentPage() {
       percent: v.total > 0 ? Math.round((v.correct / v.total) * 100) : 0,
     }));
 
-    return { correct: correctCount, wrong: wrongCount, skipped: skippedCount, total: totalQuestions, percent: overallPercent, perTopic };
+    return {
+      correct: correctCount,
+      wrong: wrongCount,
+      skipped: skippedCount,
+      total: totalQuestions,
+      percent: overallPercent,
+      perTopic,
+    };
   }
 
   // FINAL SUBMISSION
@@ -253,13 +283,16 @@ export default function RunAssessmentPage() {
     submitAssessmentMutation.mutate();
   }
 
-// CONFIRMATION GATE BEFORE SUBMISSION
+  // CONFIRMATION GATE BEFORE SUBMISSION
   // BEHAVIOR: WARN ABOUT UNANSWERED QUESTIONS; OPTIONALLY CONTINUE
   function confirmAndSubmitAssessment() {
-    const unansweredCount = FLATTENED_QUESTIONS.length - Object.keys(answersByQuestionId).length;
+    const unansweredCount =
+      FLATTENED_QUESTIONS.length - Object.keys(answersByQuestionId).length;
     if (unansweredCount > 0) {
       const proceed = window.confirm(
-        `You still have ${unansweredCount} unanswered question${unansweredCount > 1 ? "s" : ""}. Submit anyway?`
+        `You still have ${unansweredCount} unanswered question${
+          unansweredCount > 1 ? "s" : ""
+        }. Submit anyway?`
       );
       if (!proceed) return;
     }
@@ -273,7 +306,9 @@ export default function RunAssessmentPage() {
   if (isAssessmentLoading) {
     return (
       <div className="min-h-screen grid place-items-center bg-slate-100">
-        <div className="bg-white border rounded-2xl p-6 shadow-sm">Loading assessment…</div>
+        <div className="bg-white border rounded-2xl p-6 shadow-sm">
+          Loading assessment…
+        </div>
       </div>
     );
   }
@@ -282,7 +317,8 @@ export default function RunAssessmentPage() {
     return (
       <div className="min-h-screen grid place-items-center bg-slate-100">
         <div className="bg-white border rounded-2xl p-6 shadow-sm text-red-600">
-          Failed to load assessment: {assessmentLoadError?.message || "Unknown error"}
+          Failed to load assessment:{" "}
+          {assessmentLoadError?.message || "Unknown error"}
         </div>
       </div>
     );
@@ -292,8 +328,12 @@ export default function RunAssessmentPage() {
     return (
       <div className="min-h-screen grid place-items-center bg-slate-100">
         <div className="bg-white border rounded-2xl p-6 shadow-sm text-center">
-          <div className="text-lg font-semibold text-slate-800 mb-2">No Questions Available</div>
-          <p className="text-slate-600 mb-4">This assessment has no questions yet.</p>
+          <div className="text-lg font-semibold text-slate-800 mb-2">
+            No Questions Available
+          </div>
+          <p className="text-slate-600 mb-4">
+            This assessment has no questions yet.
+          </p>
           <Link
             to="/assessments"
             className="px-4 py-2 rounded-lg bg-indigo-600 text-white shadow hover:bg-indigo-700"
@@ -310,8 +350,12 @@ export default function RunAssessmentPage() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-100">
         <div className="bg-white p-6 rounded-2xl shadow-lg text-center">
-          <h2 className="text-xl font-semibold text-slate-800 mb-4">Assessment Requires Full Screen</h2>
-          <p className="text-slate-600 mb-4">Please allow full screen mode to continue with the assessment.</p>
+          <h2 className="text-xl font-semibold text-slate-800 mb-4">
+            Assessment Requires Full Screen
+          </h2>
+          <p className="text-slate-600 mb-4">
+            Please allow full screen mode to continue with the assessment.
+          </p>
           <button
             onClick={() => window.location.reload()}
             className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
@@ -326,8 +370,14 @@ export default function RunAssessmentPage() {
   // POST-SUBMISSION SUMMARY
   // BEHAVIOR: DISPLAY OVERALL SCORE AND PER-TOPIC BREAKDOWN
   if (hasUserSubmitted) {
-    const finalSummary =
-      scoringSummary || { correct: 0, wrong: 0, skipped: 0, total: totalQuestionCount, percent: 0, perTopic: [] };
+    const finalSummary = scoringSummary || {
+      correct: 0,
+      wrong: 0,
+      skipped: 0,
+      total: totalQuestionCount,
+      percent: 0,
+      perTopic: [],
+    };
 
     return (
       <div className="min-h-screen bg-slate-100 py-8 px-4">
@@ -335,14 +385,35 @@ export default function RunAssessmentPage() {
           {/* TOP SUMMARY CARDS */}
           <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-6">
             {[
-              { label: "Score", value: `${finalSummary.percent}%`, sub: `${finalSummary.correct}/${finalSummary.total} correct` },
-              { label: "Correct", value: finalSummary.correct, sub: "Right answers" },
-              { label: "Wrong", value: finalSummary.wrong, sub: "Incorrect answers" },
-              { label: "Skipped", value: finalSummary.skipped, sub: "Not answered" },
+              {
+                label: "Score",
+                value: `${finalSummary.percent}%`,
+                sub: `${finalSummary.correct}/${finalSummary.total} correct`,
+              },
+              {
+                label: "Correct",
+                value: finalSummary.correct,
+                sub: "Right answers",
+              },
+              {
+                label: "Wrong",
+                value: finalSummary.wrong,
+                sub: "Incorrect answers",
+              },
+              {
+                label: "Skipped",
+                value: finalSummary.skipped,
+                sub: "Not answered",
+              },
             ].map((card) => (
-              <div key={card.label} className="rounded-xl border bg-white p-4 shadow-sm">
+              <div
+                key={card.label}
+                className="rounded-xl border bg-white p-4 shadow-sm"
+              >
                 <div className="text-xs text-slate-500">{card.label}</div>
-                <div className="text-2xl font-semibold text-slate-800 mt-1">{card.value}</div>
+                <div className="text-2xl font-semibold text-slate-800 mt-1">
+                  {card.value}
+                </div>
                 <div className="text-[12px] text-slate-500">{card.sub}</div>
               </div>
             ))}
@@ -350,14 +421,23 @@ export default function RunAssessmentPage() {
 
           {/* PER-TOPIC BREAKDOWN */}
           <div className="rounded-xl border bg-white shadow-sm overflow-hidden">
-            <div className="px-5 py-3 border-b font-semibold text-slate-800">Topic Breakdown</div>
+            <div className="px-5 py-3 border-b font-semibold text-slate-800">
+              Topic Breakdown
+            </div>
             <div className="divide-y">
               {finalSummary.perTopic.length === 0 ? (
-                <div className="px-5 py-6 text-sm text-slate-500">No detailed breakdown available.</div>
+                <div className="px-5 py-6 text-sm text-slate-500">
+                  No detailed breakdown available.
+                </div>
               ) : (
                 finalSummary.perTopic.map((topicRow) => (
-                  <div key={topicRow.topic} className="px-5 py-3 flex items-center gap-4 text-sm">
-                    <div className="w-40 font-medium text-slate-800">{topicRow.topic}</div>
+                  <div
+                    key={topicRow.topic}
+                    className="px-5 py-3 flex items-center gap-4 text-sm"
+                  >
+                    <div className="w-40 font-medium text-slate-800">
+                      {topicRow.topic}
+                    </div>
                     <div className="flex-1">
                       <div className="w-full bg-slate-200 h-2 rounded">
                         <div
@@ -401,7 +481,9 @@ export default function RunAssessmentPage() {
         answersByQuestionId[activeQuestion.id] !== "";
 
   const goToNextQuestion = () =>
-    setActiveQuestionIndex((prev) => Math.min(totalQuestionCount - 1, prev + 1));
+    setActiveQuestionIndex((prev) =>
+      Math.min(totalQuestionCount - 1, prev + 1)
+    );
   const goToPreviousQuestion = () =>
     setActiveQuestionIndex((prev) => Math.max(0, prev - 1));
 
@@ -433,63 +515,82 @@ export default function RunAssessmentPage() {
         <div className="w-full bg-slate-200 rounded-full h-2 mb-6">
           <div
             className="bg-indigo-600 h-2 rounded-full transition-all duration-300"
-            style={{ width: `${((activeQuestionIndex + 1) / totalQuestionCount) * 100}%` }}
+            style={{
+              width: `${
+                ((activeQuestionIndex + 1) / totalQuestionCount) * 100
+              }%`,
+            }}
           />
         </div>
 
         {/* QUESTION BODY */}
         <div className="bg-white border rounded-xl p-6 shadow-sm mb-6">
           <div className="font-medium text-slate-800 mb-4 text-lg">
-            {activeQuestion.label || activeQuestion.title || activeQuestion.q || `Question ${activeQuestionIndex + 1}`}
+            {activeQuestion.label ||
+              activeQuestion.title ||
+              activeQuestion.q ||
+              `Question ${activeQuestionIndex + 1}`}
           </div>
 
           {/* SINGLE-CHOICE ANSWERS */}
-          {activeQuestion.type === "single" && Array.isArray(activeQuestion.options) && (
-            <div className="space-y-3">
-              {activeQuestion.options.map((opt, idx) => {
-                const picked = answersByQuestionId[activeQuestion.id];
-                const isActive = String(picked) === String(opt);
-                return (
-                  <button
-                    key={idx}
-                    onClick={() => recordAnswerForQuestion(activeQuestion.id, opt)}
-                    className={`w-full text-left p-3 rounded-lg border transition ${
-                      isActive ? "bg-indigo-50 border-indigo-300" : "bg-white border-slate-200 hover:bg-slate-50"
-                    }`}
-                  >
-                    {opt}
-                  </button>
-                );
-              })}
-            </div>
-          )}
+          {activeQuestion.type === "single" &&
+            Array.isArray(activeQuestion.options) && (
+              <div className="space-y-3">
+                {activeQuestion.options.map((opt, idx) => {
+                  const picked = answersByQuestionId[activeQuestion.id];
+                  const isActive = String(picked) === String(opt);
+                  return (
+                    <button
+                      key={idx}
+                      onClick={() =>
+                        recordAnswerForQuestion(activeQuestion.id, opt)
+                      }
+                      className={`w-full text-left p-3 rounded-lg border transition ${
+                        isActive
+                          ? "bg-indigo-50 border-indigo-300"
+                          : "bg-white border-slate-200 hover:bg-slate-50"
+                      }`}
+                    >
+                      {opt}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
 
           {/* MULTI-SELECT ANSWERS */}
-          {activeQuestion.type === "multi" && Array.isArray(activeQuestion.options) && (
-            <div className="space-y-2">
-              {activeQuestion.options.map((opt, idx) => {
-                const picked = Array.isArray(answersByQuestionId[activeQuestion.id])
-                  ? answersByQuestionId[activeQuestion.id]
-                  : [];
-                const isChecked = picked.includes(opt);
-                return (
-                  <label
-                    key={idx}
-                    className={`flex items-center gap-2 p-3 rounded-lg border cursor-pointer ${
-                      isChecked ? "bg-indigo-50 border-indigo-300" : "bg-white border-slate-200 hover:bg-slate-50"
-                    }`}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={isChecked}
-                      onChange={() => toggleMultiSelectAnswer(activeQuestion.id, opt)}
-                    />
-                    <span>{opt}</span>
-                  </label>
-                );
-              })}
-            </div>
-          )}
+          {activeQuestion.type === "multi" &&
+            Array.isArray(activeQuestion.options) && (
+              <div className="space-y-2">
+                {activeQuestion.options.map((opt, idx) => {
+                  const picked = Array.isArray(
+                    answersByQuestionId[activeQuestion.id]
+                  )
+                    ? answersByQuestionId[activeQuestion.id]
+                    : [];
+                  const isChecked = picked.includes(opt);
+                  return (
+                    <label
+                      key={idx}
+                      className={`flex items-center gap-2 p-3 rounded-lg border cursor-pointer ${
+                        isChecked
+                          ? "bg-indigo-50 border-indigo-300"
+                          : "bg-white border-slate-200 hover:bg-slate-50"
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={() =>
+                          toggleMultiSelectAnswer(activeQuestion.id, opt)
+                        }
+                      />
+                      <span>{opt}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            )}
 
           {/* NUMERIC ANSWER */}
           {activeQuestion.type === "numeric" && (
@@ -497,16 +598,23 @@ export default function RunAssessmentPage() {
               <input
                 type="number"
                 value={answersByQuestionId[activeQuestion.id] ?? ""}
-                onChange={(e) => recordAnswerForQuestion(activeQuestion.id, e.target.value)}
+                onChange={(e) =>
+                  recordAnswerForQuestion(activeQuestion.id, e.target.value)
+                }
                 min={activeQuestion.min ?? undefined}
                 max={activeQuestion.max ?? undefined}
                 className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring focus:ring-indigo-200"
                 placeholder="Enter a number"
               />
-              {(activeQuestion.min !== undefined || activeQuestion.max !== undefined) && (
+              {(activeQuestion.min !== undefined ||
+                activeQuestion.max !== undefined) && (
                 <div className="text-xs text-slate-500 mt-1">
-                  {activeQuestion.min !== undefined ? `min ${activeQuestion.min}` : ""}{" "}
-                  {activeQuestion.max !== undefined ? `max ${activeQuestion.max}` : ""}
+                  {activeQuestion.min !== undefined
+                    ? `min ${activeQuestion.min}`
+                    : ""}{" "}
+                  {activeQuestion.max !== undefined
+                    ? `max ${activeQuestion.max}`
+                    : ""}
                 </div>
               )}
             </div>
@@ -518,14 +626,17 @@ export default function RunAssessmentPage() {
               <input
                 type="text"
                 value={answersByQuestionId[activeQuestion.id] ?? ""}
-                onChange={(e) => recordAnswerForQuestion(activeQuestion.id, e.target.value)}
+                onChange={(e) =>
+                  recordAnswerForQuestion(activeQuestion.id, e.target.value)
+                }
                 maxLength={activeQuestion.maxLength ?? undefined}
                 className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring focus:ring-indigo-200"
                 placeholder="Your answer"
               />
               {activeQuestion.maxLength ? (
                 <div className="text-xs text-slate-500 mt-1">
-                  {String(answersByQuestionId[activeQuestion.id] || "").length}/{activeQuestion.maxLength}
+                  {String(answersByQuestionId[activeQuestion.id] || "").length}/
+                  {activeQuestion.maxLength}
                 </div>
               ) : null}
             </div>
@@ -536,7 +647,9 @@ export default function RunAssessmentPage() {
             <div>
               <textarea
                 value={answersByQuestionId[activeQuestion.id] ?? ""}
-                onChange={(e) => recordAnswerForQuestion(activeQuestion.id, e.target.value)}
+                onChange={(e) =>
+                  recordAnswerForQuestion(activeQuestion.id, e.target.value)
+                }
                 rows={6}
                 maxLength={activeQuestion.maxLength ?? undefined}
                 className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring focus:ring-indigo-200"
@@ -544,7 +657,8 @@ export default function RunAssessmentPage() {
               />
               {activeQuestion.maxLength ? (
                 <div className="text-xs text-slate-500 mt-1">
-                  {String(answersByQuestionId[activeQuestion.id] || "").length}/{activeQuestion.maxLength}
+                  {String(answersByQuestionId[activeQuestion.id] || "").length}/
+                  {activeQuestion.maxLength}
                 </div>
               ) : null}
             </div>
@@ -561,10 +675,15 @@ export default function RunAssessmentPage() {
             Previous
           </button>
 
-          <div className="text-sm text-slate-500">{isActiveQuestionAnswered ? "Answered" : "Not Answered"}</div>
+          <div className="text-sm text-slate-500">
+            {isActiveQuestionAnswered ? "Answered" : "Not Answered"}
+          </div>
 
           {activeQuestionIndex === totalQuestionCount - 1 ? (
-            <button onClick={confirmAndSubmitAssessment} className="px-4 py-2 rounded-lg bg-indigo-600 text-white">
+            <button
+              onClick={confirmAndSubmitAssessment}
+              className="px-4 py-2 rounded-lg bg-indigo-600 text-white"
+            >
               Submit Test
             </button>
           ) : (
@@ -581,7 +700,8 @@ export default function RunAssessmentPage() {
         {/* COMPLETION OVERVIEW BAR */}
         <div className="mt-4 p-3 bg-slate-50 border border-slate-200 rounded-lg">
           <div className="text-sm text-slate-700 mb-2">
-            Questions answered: {Object.keys(answersByQuestionId).length} / {totalQuestionCount}
+            Questions answered: {Object.keys(answersByQuestionId).length} /{" "}
+            {totalQuestionCount}
           </div>
           <div className="grid grid-cols-10 gap-1">
             {FLATTENED_QUESTIONS.map((q, index) => {
@@ -593,7 +713,9 @@ export default function RunAssessmentPage() {
               return (
                 <div
                   key={q.id ?? index}
-                  className={`h-2 rounded ${isDone ? "bg-emerald-500" : "bg-slate-300"}`}
+                  className={`h-2 rounded ${
+                    isDone ? "bg-emerald-500" : "bg-slate-300"
+                  }`}
                   title={`Question ${index + 1}`}
                 />
               );
@@ -604,12 +726,12 @@ export default function RunAssessmentPage() {
         {/* FRIENDLY WARNING ABOUT AUTO-SUBMIT AND REQUIRED ANSWERS */}
         <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-center">
           <p className="text-sm text-yellow-700">
-            ⚠️ YOU CAN SUBMIT ANYTIME. IF TIME EXPIRES, YOUR ANSWERS ARE AUTO-SUBMITTED.
-            YOU CAN ONLY MOVE FORWARD AFTER ANSWERING THE CURRENT QUESTION.
+            ⚠️ YOU CAN SUBMIT ANYTIME. IF TIME EXPIRES, YOUR ANSWERS ARE
+            AUTO-SUBMITTED. YOU CAN ONLY MOVE FORWARD AFTER ANSWERING THE
+            CURRENT QUESTION.
           </p>
         </div>
       </div>
     </div>
   );
 }
-

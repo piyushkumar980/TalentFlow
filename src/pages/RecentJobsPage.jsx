@@ -2,9 +2,16 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
-/* PURE HELPERS USED FOR DATA NORMALIZATION, CLASS PICKING, AND DERIVED FIELDS*/
+/* -----------------------------
+   HELPER FUNCTIONS
+   -----------------------------
+   These are pure helpers for formatting, deriving fields, or picking class names.
+*/
 
-/* RETURNS A CLASSNAME FOR STATUS BADGE BASED ON ACTIVE/OTHER */
+/* STATUS BADGE CLASS
+   - ACTIVE → green
+   - OTHER → gray
+*/
 const getStatusBadgeClassName = (statusValue) => {
   const normalized = String(statusValue || "").toLowerCase();
   return normalized === "active"
@@ -12,12 +19,15 @@ const getStatusBadgeClassName = (statusValue) => {
     : "bg-slate-100 text-slate-700";
 };
 
-/* FORMATS A NUMBER SAFELY FOR DISPLAY (DEFAULTS TO ZERO) */
+/* SAFE NUMBER FORMATTER */
 function formatNumberForDisplay(n) {
   return Intl.NumberFormat().format(n ?? 0);
 }
 
-/* CONVERTS A TIMESTAMP OR ISO STRING TO A DATE OBJECT; USES NOW AS FALLBACK */
+/* SAFE DATE CONVERTER
+   - Converts ISO string or timestamp to Date object
+   - Defaults to current date if invalid
+*/
 function toSafeDateObject(timestampOrIso) {
   try {
     return new Date(timestampOrIso);
@@ -26,7 +36,10 @@ function toSafeDateObject(timestampOrIso) {
   }
 }
 
-/* INFERS A TEAM NAME FROM A ROLE/TITLE STRING TO KEEP FILTERS MEANINGFUL */
+/* INFER TEAM FROM ROLE TEXT
+   - Maps role/title keywords to a team
+   - Default = "Engineering"
+*/
 function inferTeamFromRoleText(role = "") {
   const r = role.toLowerCase();
   if (r.includes("product")) return "Product";
@@ -44,7 +57,9 @@ function inferTeamFromRoleText(role = "") {
   return "Engineering";
 }
 
-/* RETURNS TRUE IF A LAST-CONTACT LIKE "3 DAYS AGO" FALLS WITHIN 7 DAYS */
+/* CHECK IF LAST CONTACT OCCURRED WITHIN 7 DAYS
+   - e.g., "3 days ago" → true
+*/
 function lastContactOccurredWithinSevenDays(lastContact = "") {
   const s = String(lastContact).toLowerCase();
   if (s.includes("today")) return true;
@@ -54,22 +69,27 @@ function lastContactOccurredWithinSevenDays(lastContact = "") {
   return days <= 7;
 }
 
-/* JOB DETAIL MODAL
-   PURPOSE: SHOW A READ-ONLY, ENRICHED VIEW OF THE SELECTED JOB RECORD*/
+/* -----------------------------
+   JOB DETAIL MODAL COMPONENT
+   -----------------------------
+   - Read-only, enriched view of a selected job
+   - Shows title, team, location, company, status, description, stats
+   - Closes on backdrop click or "Close" button
+*/
 const JobDetailModal = ({ job, onClose }) => {
   if (!job) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      {/* BACKDROP: CLICK TO CLOSE MODAL */}
+      {/* Backdrop */}
       <div
         className="absolute inset-0 bg-black bg-opacity-50 backdrop-blur-sm"
         onClick={onClose}
       />
-      {/* MODAL CONTAINER */}
+      {/* Modal container */}
       <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
         <div className="p-6">
-          {/* HEADER: BACK BUTTON, TITLE, META, STATUS BADGE */}
+          {/* Header */}
           <div className="flex items-start justify-between mb-6">
             <div>
               <button
@@ -90,7 +110,7 @@ const JobDetailModal = ({ job, onClose }) => {
             </span>
           </div>
 
-          {/* DESCRIPTION: FALLS BACK TO A GENERIC SENTENCE IF NOT SUPPLIED */}
+          {/* Description */}
           <div className="border-t border-b border-slate-200 py-4 my-4">
             <p className="text-slate-700">
               {job.description ||
@@ -98,7 +118,7 @@ const JobDetailModal = ({ job, onClose }) => {
             </p>
           </div>
 
-          {/* DETAILS GRID: BASIC FIELDS FOR QUICK REFERENCE */}
+          {/* Job details grid */}
           <div className="mb-6">
             <h3 className="text-lg font-semibold text-slate-800 mb-3">Job Details</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -125,7 +145,7 @@ const JobDetailModal = ({ job, onClose }) => {
             </div>
           </div>
 
-          {/* STATISTICS: COUNTS USED BY THE DASHBOARD AND LIST VIEW */}
+          {/* Statistics */}
           <div className="mb-6">
             <h3 className="text-lg font-semibold text-slate-800 mb-3">Statistics</h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -150,7 +170,7 @@ const JobDetailModal = ({ job, onClose }) => {
             </div>
           </div>
 
-          {/* ACTIONS: CLOSE MODAL */}
+          {/* Actions */}
           <div className="flex gap-3 pt-4 border-t border-slate-200">
             <button
               onClick={onClose}
@@ -165,33 +185,40 @@ const JobDetailModal = ({ job, onClose }) => {
   );
 };
 
-/* RECENT JOBS PAGE
-   PURPOSE: FETCH LARGE LISTS, ENRICH THEM WITH DERIVED FIELDS, FILTER/SORT,
-            AND PROVIDE A CLICK-THROUGH MODAL FOR JOB DETAILS */
+/* -----------------------------
+   RECENT JOBS PAGE COMPONENT
+   -----------------------------
+   - Fetches jobs + candidates
+   - Computes derived fields (counts, new-this-week, synthetic views)
+   - Supports search, filter, sort
+   - Opens JobDetailModal on row click
+*/
 export default function RecentJobsPage() {
-  /* FILTER/SEARCH/SORT UI STATE */
+  /* UI state: search, filters, sort */
   const [searchQueryText, setSearchQueryText] = useState("");
   const [selectedTeamFilter, setSelectedTeamFilter] = useState("");
   const [selectedStatusFilter, setSelectedStatusFilter] = useState("");
   const [selectedSortOrder, setSelectedSortOrder] = useState("posted-desc");
 
-  /* MODAL STATE FOR CURRENTLY HIGHLIGHTED JOB */
+  /* Modal state */
   const [currentlyOpenedJobForModal, setCurrentlyOpenedJobForModal] = useState(null);
 
-  /* LOADING AND ERROR STATE FOR NETWORK OPERATIONS */
+  /* Loading & error states */
   const [isLoadingJobsAndCandidates, setIsLoadingJobsAndCandidates] = useState(true);
   const [loadingErrorMessage, setLoadingErrorMessage] = useState("");
 
-  /* RAW DATA ARRAYS AND DERIVED MAPS */
+  /* Raw + derived data */
   const [rawJobRecordsFromServer, setRawJobRecordsFromServer] = useState([]);
-  const [derivedJobStatsByJobId, setDerivedJobStatsByJobId] = useState(new Map()); // JOB_ID → { CANDIDATES, NEWTHISWEEK }
-  const [enrichedJobRowsForUi, setEnrichedJobRowsForUi] = useState([]); // FINAL ENRICHED OBJECTS FOR RENDERING
+  const [derivedJobStatsByJobId, setDerivedJobStatsByJobId] = useState(new Map());
+  const [enrichedJobRowsForUi, setEnrichedJobRowsForUi] = useState([]);
 
-  /* EFFECT: FETCH JOBS AND CANDIDATES IN PARALLEL, THEN BUILD DERIVED FIELDS
-     - CANDIDATE COUNTS PER JOB
-     - "NEW THIS WEEK" USING LAST-CONTACT HEURISTIC
-     - POSTED DATE FROM ORDER FIELD WHEN MISSING
-     - SYNTHETIC VIEWS VALUE TO PROVIDE A STABLE SORT KEY*/
+  /* -----------------------------
+     FETCH JOBS AND CANDIDATES ON MOUNT
+     -----------------------------
+     - Computes per-job stats
+     - Generates posted date if missing
+     - Computes synthetic views
+  */
   useEffect(() => {
     let didAbort = false;
 
@@ -207,14 +234,11 @@ export default function RecentJobsPage() {
 
         if (!jobsRes.ok || !candRes.ok) throw new Error("Failed to load data");
 
-        const jobsJson = await jobsRes.json();
-        const candidatesJson = await candRes.json();
+        const jobsArray = (await jobsRes.json()).items || [];
+        const candidatesArray = (await candRes.json()).items || [];
 
-        const jobsArray = jobsJson.items || [];
-        const candidatesArray = candidatesJson.items || [];
-
-        // BUILD PER-JOB COUNTS AND NEW-WITHIN-7D METRIC
-        const statsMap = new Map(); // JOB_ID → { candidates, newThisWeek }
+        // Build per-job stats
+        const statsMap = new Map();
         for (const candidate of candidatesArray) {
           const jobId = candidate.jobId;
           if (!statsMap.has(jobId)) statsMap.set(jobId, { candidates: 0, newThisWeek: 0 });
@@ -223,25 +247,19 @@ export default function RecentJobsPage() {
           if (lastContactOccurredWithinSevenDays(candidate.lastContact)) bucket.newThisWeek += 1;
         }
 
-        // ENRICH EVERY JOB WITH DERIVED FIELDS FOR DISPLAY AND SORTING
+        // Enrich jobs for UI
         const enrichedJobs = jobsArray.map((job) => {
           const bucket = statsMap.get(job.id) || { candidates: 0, newThisWeek: 0 };
-
-          // GENERATE "POSTED" DATE USING ORDER AS A SIMPLE DAYS-AGO MULTIPLIER WHEN MISSING
           const daysAgo = Number.isFinite(job.order) ? job.order * 2 : 0;
           const postedIso = new Date(Date.now() - daysAgo * 86400000).toISOString();
-
-          // GENERATE A SYNTHETIC "VIEWS" VALUE FROM CANDIDATE COUNT AND ID (STABLE)
-          const synthesizedViews =
-            bucket.candidates * 40 + ((job.id || 1) * 97) % 5000;
-
+          const synthesizedViews = bucket.candidates * 40 + ((job.id || 1) * 97) % 5000;
           const computedTitle = job.role || job.title || "—";
 
           return {
             id: job.id,
             title: computedTitle,
             team: job.team || inferTeamFromRoleText(computedTitle),
-            status: job.status, // KEEP AS PROVIDED; UPPERCASED AT RENDER
+            status: job.status,
             company: job.company || "",
             location: job.location || "",
             tags: job.tags || [],
@@ -270,16 +288,17 @@ export default function RecentJobsPage() {
     };
   }, []);
 
-  /*DISTINCT LIST OF TEAMS FOR FILTER DROPDOWN*/
+  /* Distinct teams for filter dropdown */
   const distinctTeamsForFilter = useMemo(() => {
     return Array.from(new Set(enrichedJobRowsForUi.map((r) => r.team))).sort();
   }, [enrichedJobRowsForUi]);
 
-  /* FILTER + SORT PIPELINE
-     - TEXT SEARCH MATCHES TITLE/TEAM/COMPANY
-     - TEAM FILTER EXACT MATCH
-     - STATUS FILTER (UPPERCASED COMPARISON)
-     - SORT STRATEGIES FOR POSTED/CANDIDATES/NEW/VIEWS*/
+  /* -----------------------------
+     FILTER + SORT PIPELINE
+     -----------------------------
+     - Filters: search, team, status
+     - Sorts: posted, candidates, new-this-week, views
+  */
   const filteredAndSortedJobRows = useMemo(() => {
     let rows = enrichedJobRowsForUi.filter((row) => {
       const query = searchQueryText.trim().toLowerCase();
@@ -290,7 +309,6 @@ export default function RecentJobsPage() {
         (row.company || "").toLowerCase().includes(query);
 
       const matchesTeam = !selectedTeamFilter || row.team === selectedTeamFilter;
-
       const matchesStatus =
         !selectedStatusFilter ||
         String(row.status || "").toUpperCase() === String(selectedStatusFilter).toUpperCase();
@@ -315,7 +333,7 @@ export default function RecentJobsPage() {
             (a, b) => toSafeDateObject(a.posted).getTime() - toSafeDateObject(b.posted).getTime()
           );
         break;
-      default: // "posted-desc"
+      default: // posted-desc
         rows = rows
           .slice()
           .sort(
@@ -333,11 +351,13 @@ export default function RecentJobsPage() {
     enrichedJobRowsForUi,
   ]);
 
-  /* HANDLERS FOR OPEN/CLOSE MODAL */
+  /* Handlers for modal open/close */
   const handleOpenJobInModal = (job) => setCurrentlyOpenedJobForModal(job);
   const handleCloseJobModal = () => setCurrentlyOpenedJobForModal(null);
 
-  /* LOADING AND ERROR GATES */
+  /* -----------------------------
+     LOADING & ERROR UI
+  */
   if (isLoadingJobsAndCandidates) {
     return (
       <div className="rounded-2xl border bg-white p-8 text-center text-slate-500">
@@ -353,15 +373,17 @@ export default function RecentJobsPage() {
     );
   }
 
-  /*RENDER MAIN PAGE: TOOLBAR + TABLE + OPTIONAL MODAL */
+  /* -----------------------------
+     RENDER MAIN PAGE
+  */
   return (
     <div className="space-y-4">
-      {/* MODAL IS MOUNTED WHEN A JOB IS SELECTED */}
+      {/* Job detail modal */}
       {currentlyOpenedJobForModal && (
         <JobDetailModal job={currentlyOpenedJobForModal} onClose={handleCloseJobModal} />
       )}
 
-      {/* FILTER/SORT TOOLBAR DRIVING THE MEMOIZED PIPELINE ABOVE */}
+      {/* Toolbar: search + filters + sort + back link */}
       <div className="bg-white border rounded-2xl p-3 shadow-sm flex flex-wrap gap-3">
         <input
           value={searchQueryText}
@@ -413,8 +435,9 @@ export default function RecentJobsPage() {
         </Link>
       </div>
 
-      {/* DATA TABLE WITH SORTABLE COLUMNS AND CLICK-TO-VIEW BEHAVIOR */}
+      {/* Data table */}
       <div className="rounded-2xl border bg-white shadow-sm overflow-hidden">
+        {/* Table header */}
         <div className="grid grid-cols-12 gap-2 px-4 py-3 border-b text-xs font-semibold text-slate-600">
           <div className="col-span-4">Job</div>
           <div className="col-span-2">Team</div>
@@ -424,6 +447,7 @@ export default function RecentJobsPage() {
           <div className="col-span-2 text-right">Views</div>
         </div>
 
+        {/* Table rows */}
         <ul className="divide-y divide-slate-100">
           {filteredAndSortedJobRows.map((row) => (
             <li
@@ -443,7 +467,11 @@ export default function RecentJobsPage() {
                 <div className="col-span-2 text-slate-700">{row.team}</div>
 
                 <div className="col-span-2">
-                  <span className={`text-xs px-2 py-0.5 rounded-full ${getStatusBadgeClassName(row.status)}`}>
+                  <span
+                    className={`text-xs px-2 py-0.5 rounded-full ${getStatusBadgeClassName(
+                      row.status
+                    )}`}
+                  >
                     {String(row.status || "").toUpperCase()}
                   </span>
                 </div>
@@ -456,14 +484,13 @@ export default function RecentJobsPage() {
                   +{formatNumberForDisplay(row.newThisWeek)}
                 </div>
 
-                <div className="col-span-2 text-right">
-                  {formatNumberForDisplay(row.views)}
-                </div>
+                <div className="col-span-2 text-right">{formatNumberForDisplay(row.views)}</div>
               </div>
             </li>
           ))}
         </ul>
 
+        {/* Table footer */}
         <div className="px-4 py-3 text-xs text-slate-500 border-t">
           Showing {filteredAndSortedJobRows.length} of {enrichedJobRowsForUi.length} jobs
         </div>

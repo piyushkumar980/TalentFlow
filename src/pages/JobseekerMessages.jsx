@@ -42,7 +42,7 @@ const deriveRelativeTimeLabel = (value) => {
 
 // BUILD AN EPOCH FOR “X TIME AGO” FOR QUICK SEEDING
 const computeEpochMsFromAgoParts = ({ d = 0, h = 0, m = 0 } = {}) =>
-  Date.now() - (((d * 24 + h) * 60 + m) * 60 * 1000);
+  Date.now() - ((d * 24 + h) * 60 + m) * 60 * 1000;
 
 // CONVERT “AGO PARTS” INTO ISO STRING (SEED DATA ONLY)
 const isoTimestampFromAgoParts = (parts) =>
@@ -83,8 +83,7 @@ const JobseekerMessages = ({ darkMode }) => {
           "Thanks for your application! We’d love to move forward with a quick coding sample…",
         unread: true,
         createdAt: isoTimestampFromAgoParts({ h: 2 }),
-        body:
-          "Hi there,\n\nThanks for your application! We’d love to move forward with a quick coding sample. Please find the details attached.\n\nBest,\nBrightFlow Labs",
+        body: "Hi there,\n\nThanks for your application! We’d love to move forward with a quick coding sample. Please find the details attached.\n\nBest,\nBrightFlow Labs",
       },
       {
         id: "msg-202",
@@ -94,8 +93,7 @@ const JobseekerMessages = ({ darkMode }) => {
           "Can you confirm your availability for this Friday? We can do 3:30 PM IST…",
         unread: true,
         createdAt: isoTimestampFromAgoParts({ d: 1, h: 3 }),
-        body:
-          "Hello,\n\nCan you confirm your availability for this Friday? We can do 3:30 PM IST. Let us know if that works.\n\nRegards,\nNovaAnalytics",
+        body: "Hello,\n\nCan you confirm your availability for this Friday? We can do 3:30 PM IST. Let us know if that works.\n\nRegards,\nNovaAnalytics",
       },
       {
         id: "msg-203",
@@ -105,8 +103,7 @@ const JobseekerMessages = ({ darkMode }) => {
           "Great news! We’re thrilled to extend you an offer. The details are attached…",
         unread: false,
         createdAt: isoTimestampFromAgoParts({ d: 5 }),
-        body:
-          "Hi,\n\nGreat news! We’re thrilled to extend you an offer. The details are attached. Please review and let us know if you have any questions.\n\nCheers,\nCloudScape HR",
+        body: "Hi,\n\nGreat news! We’re thrilled to extend you an offer. The details are attached. Please review and let us know if you have any questions.\n\nCheers,\nCloudScape HR",
       },
       {
         id: "msg-204",
@@ -116,8 +113,7 @@ const JobseekerMessages = ({ darkMode }) => {
           "Thank you for interviewing with us. After careful review, we will not be moving forward…",
         unread: false,
         createdAt: isoTimestampFromAgoParts({ d: 21 }),
-        body:
-          "Hello,\n\nThank you for interviewing with us. After careful review, we will not be moving forward. We appreciate your time and wish you the best in your search.\n\nCobaltWorks Talent",
+        body: "Hello,\n\nThank you for interviewing with us. After careful review, we will not be moving forward. We appreciate your time and wish you the best in your search.\n\nCobaltWorks Talent",
       },
       {
         id: "msg-205",
@@ -127,8 +123,7 @@ const JobseekerMessages = ({ darkMode }) => {
           "We’re reviewing your writing sample. Expect feedback this week…",
         unread: false,
         createdAt: isoTimestampFromAgoParts({ d: 65 }),
-        body:
-          "Hi,\n\nWe’re reviewing your writing sample. Expect feedback this week.\n\nThanks,\nDocuTech",
+        body: "Hi,\n\nWe’re reviewing your writing sample. Expect feedback this week.\n\nThanks,\nDocuTech",
       },
       {
         id: "msg-206",
@@ -138,8 +133,7 @@ const JobseekerMessages = ({ darkMode }) => {
           "We have received your application and will be in touch if we proceed…",
         unread: false,
         createdAt: isoTimestampFromAgoParts({ d: 400 }),
-        body:
-          "Hello,\n\nWe have received your application and will be in touch if we proceed.\n\nRegards,\nDataHub",
+        body: "Hello,\n\nWe have received your application and will be in touch if we proceed.\n\nRegards,\nDataHub",
       },
     ];
     setConversationThreads(seededThreads);
@@ -199,7 +193,9 @@ const JobseekerMessages = ({ darkMode }) => {
            SHOWS SEARCH INPUT AND QUICK FILTER BUTTONS; FILTERING IS CLIENT-SIDE ONLY */}
         <div
           className={`rounded-xl border p-4 mb-6 ${
-            darkMode ? "bg-slate-800 border-slate-700" : "bg-white border-slate-200"
+            darkMode
+              ? "bg-slate-800 border-slate-700"
+              : "bg-white border-slate-200"
           }`}
         >
           <div className="flex flex-col gap-3 md:flex-row md:items-center max-[720px]:gap-2">
@@ -254,7 +250,9 @@ const JobseekerMessages = ({ darkMode }) => {
                 onClick={() => setSelectedThread(thread)}
                 className={[
                   "cursor-pointer rounded-xl border p-4 transition shadow-sm hover:shadow-md overflow-hidden",
-                  darkMode ? "bg-slate-800 border-slate-700" : "bg-white border-slate-200",
+                  darkMode
+                    ? "bg-slate-800 border-slate-700"
+                    : "bg-white border-slate-200",
                   thread.unread
                     ? darkMode
                       ? "ring-1 ring-indigo-400/30"
@@ -265,7 +263,11 @@ const JobseekerMessages = ({ darkMode }) => {
                       ? "outline outline-1 outline-cyan-500/20"
                       : "outline outline-1 outline-cyan-300/40"
                     : "",
-                  isOldBadgeVisible ? (darkMode ? "opacity-80" : "opacity-90") : "",
+                  isOldBadgeVisible
+                    ? darkMode
+                      ? "opacity-80"
+                      : "opacity-90"
+                    : "",
                 ].join(" ")}
               >
                 <div className="flex gap-3 items-start">
@@ -303,7 +305,9 @@ const JobseekerMessages = ({ darkMode }) => {
                         darkMode ? "text-slate-300" : "text-slate-700"
                       } flex items-center gap-1 min-w-0`}
                     >
-                      <span className="font-medium shrink-0">{thread.from}</span>
+                      <span className="font-medium shrink-0">
+                        {thread.from}
+                      </span>
                       <span className="mx-1.5 shrink-0">•</span>
                       <span className="block w-full truncate break-words">
                         {thread.preview}
@@ -332,9 +336,15 @@ const JobseekerMessages = ({ darkMode }) => {
                             ? "bg-slate-900 border-slate-700 text-slate-300 hover:bg-slate-800"
                             : "bg-white border-slate-300 text-slate-700 hover:bg-slate-50"
                         }`}
-                        title={thread.unread ? "Mark as read" : "Mark as unread"}
+                        title={
+                          thread.unread ? "Mark as read" : "Mark as unread"
+                        }
                       >
-                        {thread.unread ? <MailOpen size={14} /> : <Mail size={14} />}
+                        {thread.unread ? (
+                          <MailOpen size={14} />
+                        ) : (
+                          <Mail size={14} />
+                        )}
                         <span>{thread.unread ? "Read" : "Unread"}</span>
                       </button>
 
@@ -367,7 +377,11 @@ const JobseekerMessages = ({ darkMode }) => {
                       }`}
                       title={thread.unread ? "Mark as read" : "Mark as unread"}
                     >
-                      {thread.unread ? <MailOpen size={14} /> : <Mail size={14} />}
+                      {thread.unread ? (
+                        <MailOpen size={14} />
+                      ) : (
+                        <Mail size={14} />
+                      )}
                     </button>
 
                     <button
@@ -392,7 +406,9 @@ const JobseekerMessages = ({ darkMode }) => {
           {filteredThreads.length === 0 && (
             <div
               className={`rounded-xl border p-10 text-center ${
-                darkMode ? "bg-slate-800 border-slate-700" : "bg-slate-50 border-slate-200"
+                darkMode
+                  ? "bg-slate-800 border-slate-700"
+                  : "bg-slate-50 border-slate-200"
               }`}
             >
               <p className="font-medium">No conversations found.</p>
@@ -437,7 +453,8 @@ const JobseekerMessages = ({ darkMode }) => {
                     darkMode ? "text-slate-400" : "text-slate-600"
                   }`}
                 >
-                  From <span className="font-medium">{selectedThread.from}</span> •{" "}
+                  From{" "}
+                  <span className="font-medium">{selectedThread.from}</span> •{" "}
                   {deriveRelativeTimeLabel(selectedThread.createdAt)}
                 </div>
               </div>

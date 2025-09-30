@@ -4,8 +4,12 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { listJobs, createJob } from "../api/services/jobs.js";
 
-/* LIGHTWEIGHT TOAST COMPONENT FOR SUCCESS FEEDBACK
-   RESPONSIBILITY: AUTO-HIDE AFTER A SHORT DURATION */
+/* -----------------------------
+   LIGHTWEIGHT TOAST COMPONENT
+   -----------------------------
+   Purpose: Show temporary success message when job is created.
+   Auto-hides after 3 seconds.
+*/
 const Toast = ({ message, onClose }) => {
   useEffect(() => {
     const timerId = setTimeout(onClose, 3000);
@@ -19,7 +23,11 @@ const Toast = ({ message, onClose }) => {
   );
 };
 
-/* STATIC SELECT OPTIONS FOR FORM CONTROLS */
+/* -----------------------------
+   STATIC FORM OPTIONS
+   -----------------------------
+   These options populate dropdowns for department, employment type, and seniority level.
+*/
 const ALL_DEPARTMENTS_OPTIONS = [
   "Engineering",
   "Product",
@@ -44,8 +52,12 @@ const ALL_EMPLOYMENT_TYPES = [
 
 const ALL_SENIORITY_LEVELS = ["Junior", "Mid", "Senior", "Lead", "Principal"];
 
-/* SLUG GENERATOR
-   RESPONSIBILITY: PRODUCE A URL-FRIENDLY, CONSISTENT SLUG FROM FREE TEXT */
+/* -----------------------------
+   SLUG GENERATOR
+   -----------------------------
+   Converts free text into URL-friendly lowercase slug.
+   Removes special characters, trims, replaces spaces with hyphens, max 60 chars.
+*/
 function makeUrlFriendlySlugFromText(textInput) {
   return String(textInput || "")
     .toLowerCase()
@@ -56,25 +68,35 @@ function makeUrlFriendlySlugFromText(textInput) {
     .slice(0, 60);
 }
 
-/* NEW JOB PAGE (DEFAULT EXPORT)
-   RESPONSIBILITY: RENDER CREATE-FORM, VALIDATE INPUTS, CREATE JOB VIA API,
-                   AND INVALIDATE RELEVANT QUERIES AFTER SUCCESS*/
+/* -----------------------------
+   NEW JOB PAGE COMPONENT
+   -----------------------------
+   Responsibilities:
+     - Render a create-job form
+     - Validate inputs (title, slug, salary)
+     - Auto-generate and normalize slug
+     - Call createJob API mutation
+     - Show success toast and navigate to jobs list
+     - Invalidate React Query caches so job lists refresh
+*/
 export default function NewJobPage() {
-  /*  REACT-QUERY CLIENT AND NAVIGATION HANDLES */
   const reactQueryClientInstance = useQueryClient();
   const navigate = useNavigate();
 
-  /* TOAST VISIBILITY STATE */
+  /* Toast visibility */
   const [isToastVisible, setIsToastVisible] = useState(false);
 
-  /*PREFETCH JOBS TO ENFORCE CLIENT-SIDE SLUG UNIQUENESS
-     QUERY KEY IS KEPT COMPATIBLE WITH EXISTING CACHE INVALIDATIONS */
+  /* -----------------------------
+     PREFETCH EXISTING JOBS FOR SLUG UNIQUENESS CHECK
+     -----------------------------
+     We fetch all jobs once to ensure new slug is unique client-side.
+  */
   const { data: existingJobsQueryData } = useQuery({
     queryKey: ["all-jobs-for-slug-check"],
     queryFn: () => listJobs({ page: 1, pageSize: 2000 }),
   });
 
-  /*  BUILD A LOWERCASED SET OF EXISTING SLUGS FOR O(1) LOOKUPS */
+  /* Build a lowercased set of existing slugs for O(1) lookup */
   const existingJobSlugSetLower = useMemo(
     () =>
       new Set(
@@ -85,32 +107,52 @@ export default function NewJobPage() {
     [existingJobsQueryData]
   );
 
-  /* FORM STATE: EACH FIELD STORED EXPLICITLY FOR TRACEABILITY */
+  /* -----------------------------
+     FORM STATE
+     -----------------------------
+     Each input is stored explicitly for easy tracking.
+  */
   const [jobTitleInput, setJobTitleInput] = useState("");
   const [jobSlugInput, setJobSlugInput] = useState("");
   const [jobStatusSelectValue, setJobStatusSelectValue] = useState("active");
-  const [selectedDepartment, setSelectedDepartment] = useState(ALL_DEPARTMENTS_OPTIONS[0]);
-  const [selectedEmploymentType, setSelectedEmploymentType] = useState(ALL_EMPLOYMENT_TYPES[0]);
-  const [selectedSeniorityLevel, setSelectedSeniorityLevel] = useState(ALL_SENIORITY_LEVELS[1]); // MID
+  const [selectedDepartment, setSelectedDepartment] = useState(
+    ALL_DEPARTMENTS_OPTIONS[0]
+  );
+  const [selectedEmploymentType, setSelectedEmploymentType] = useState(
+    ALL_EMPLOYMENT_TYPES[0]
+  );
+  const [selectedSeniorityLevel, setSelectedSeniorityLevel] = useState(
+    ALL_SENIORITY_LEVELS[1]
+  ); // MID
   const [jobLocationInput, setJobLocationInput] = useState("");
   const [minimumSalaryInput, setMinimumSalaryInput] = useState("");
   const [maximumSalaryInput, setMaximumSalaryInput] = useState("");
   const [jobDescriptionInput, setJobDescriptionInput] = useState("");
   const [jobTagsCsvInput, setJobTagsCsvInput] = useState("remote, full-time");
 
-  /*SLUG AUTO-SYNC WITH TITLE UNTIL USER OVERRIDES MANUALLY */
-  const [hasUserManuallyEditedSlug, setHasUserManuallyEditedSlug] = useState(false);
+  /* -----------------------------
+     AUTO-GENERATE SLUG FROM TITLE
+     -----------------------------
+     Updates slug automatically unless user manually edits it.
+  */
+  const [hasUserManuallyEditedSlug, setHasUserManuallyEditedSlug] =
+    useState(false);
   useEffect(() => {
     if (!hasUserManuallyEditedSlug) {
       setJobSlugInput(makeUrlFriendlySlugFromText(jobTitleInput));
     }
   }, [jobTitleInput, hasUserManuallyEditedSlug]);
 
-  /* FORM VALIDATION ERRORS STATE */
+  /* -----------------------------
+     FORM VALIDATION ERRORS STATE
+  */
   const [formValidationErrors, setFormValidationErrors] = useState({});
 
-  /*VALIDATION FUNCTION
-     RESPONSIBILITY: POPULATE ERROR OBJECT AND RETURN BOOLEAN STATUS */
+  /* -----------------------------
+     VALIDATION FUNCTION
+     -----------------------------
+     Checks required fields, numeric fields, salary consistency, and slug uniqueness.
+  */
   function validateFormAndCollectErrors() {
     const nextErrors = {};
 
@@ -118,7 +160,9 @@ export default function NewJobPage() {
       nextErrors.title = "Title is required.";
     }
 
-    const normalizedSlugCandidate = makeUrlFriendlySlugFromText(jobSlugInput || jobTitleInput);
+    const normalizedSlugCandidate = makeUrlFriendlySlugFromText(
+      jobSlugInput || jobTitleInput
+    );
     if (!normalizedSlugCandidate) nextErrors.slug = "Slug is required.";
     if (existingJobSlugSetLower.has(normalizedSlugCandidate)) {
       nextErrors.slug = "Slug must be unique.";
@@ -142,17 +186,22 @@ export default function NewJobPage() {
     return Object.keys(nextErrors).length === 0;
   }
 
-  /* CREATE JOB MUTATION
-     RESPONSIBILITY: CALL API, INVALIDATE RELEVANT QUERIES, SHOW TOAST, NAVIGATE*/
+  /* -----------------------------
+     CREATE JOB MUTATION
+     -----------------------------
+     Calls API, invalidates caches, shows toast, redirects after success.
+  */
   const createJobMutation = useMutation({
     mutationFn: (payload) => createJob(payload),
     onSuccess: () => {
-      // INVALIDATE CACHES THAT MAY DISPLAY JOB LISTS
-      reactQueryClientInstance.invalidateQueries({ queryKey: ["all-jobs-for-slug-check"] });
+      // Invalidate relevant queries to refresh job lists
+      reactQueryClientInstance.invalidateQueries({
+        queryKey: ["all-jobs-for-slug-check"],
+      });
       reactQueryClientInstance.invalidateQueries({ queryKey: ["jobs"] });
       reactQueryClientInstance.invalidateQueries({ queryKey: ["dash-jobs"] });
 
-      // SHOW SUCCESS TOAST AND REDIRECT AFTER A SHORT DELAY
+      // Show success toast and navigate after short delay
       setIsToastVisible(true);
       setTimeout(() => {
         navigate("/hr/jobs");
@@ -160,9 +209,11 @@ export default function NewJobPage() {
     },
   });
 
-  /* FORM SUBMIT HANDLER
-     RESPONSIBILITY: VALIDATE INPUTS, BUILD PAYLOAD, TRIGGER MUTATION
-     SERVER CONTRACT: PERSISTS { title, slug, status, tags } (+order)*/
+  /* -----------------------------
+     FORM SUBMIT HANDLER
+     -----------------------------
+     Validates inputs, builds request payload, triggers mutation
+  */
   function handleSubmitCreateJobForm(e) {
     e.preventDefault();
     const isValid = validateFormAndCollectErrors();
@@ -185,7 +236,11 @@ export default function NewJobPage() {
     createJobMutation.mutate(requestPayload);
   }
 
-  /* RENDER PAGE WITH HEADER, FORM, AND FEEDBACK ELEMENTS */
+  /* -----------------------------
+     RENDER PAGE
+     -----------------------------
+     Header, form fields, and toast feedback.
+  */
   return (
     <div className="space-y-6">
       {/* SUCCESS TOAST */}
@@ -198,7 +253,9 @@ export default function NewJobPage() {
 
       {/* PAGE HEADER */}
       <div className="rounded-2xl bg-white border shadow-sm p-5">
-        <h2 className="text-xl font-semibold text-slate-800">Create a new job</h2>
+        <h2 className="text-xl font-semibold text-slate-800">
+          Create a new job
+        </h2>
         <p className="text-sm text-slate-500 mt-1">
           Fill in the details below. Title and unique slug are required.
         </p>
@@ -209,7 +266,7 @@ export default function NewJobPage() {
         onSubmit={handleSubmitCreateJobForm}
         className="rounded-2xl bg-white border shadow-sm p-5 space-y-5"
       >
-        {/* TITLE FIELD */}
+        {/* JOB TITLE FIELD */}
         <div>
           <label className="block text-sm font-medium text-slate-700">
             Job Title <span className="text-rose-600">*</span>
@@ -221,13 +278,17 @@ export default function NewJobPage() {
             className="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring focus:ring-indigo-200"
           />
           {formValidationErrors.title && (
-            <p className="text-xs text-rose-600 mt-1">{formValidationErrors.title}</p>
+            <p className="text-xs text-rose-600 mt-1">
+              {formValidationErrors.title}
+            </p>
           )}
         </div>
 
         {/* DEPARTMENT SELECT */}
         <div>
-          <label className="block text-sm font-medium text-slate-700">Department</label>
+          <label className="block text-sm font-medium text-slate-700">
+            Department
+          </label>
           <select
             value={selectedDepartment}
             onChange={(e) => setSelectedDepartment(e.target.value)}
@@ -241,7 +302,7 @@ export default function NewJobPage() {
           </select>
         </div>
 
-        {/* DESCRIPTION TEXTAREA */}
+        {/* JOB DESCRIPTION */}
         <div>
           <label className="block text-sm font-medium text-slate-700">
             Job Description
@@ -255,7 +316,7 @@ export default function NewJobPage() {
           />
         </div>
 
-        {/* SLUG FIELD WITH AUTO-GENERATION AND NORMALIZATION */}
+        {/* SLUG FIELD */}
         <div>
           <label className="block text-sm font-medium text-slate-700">
             Slug <span className="text-rose-600">*</span>
@@ -266,22 +327,29 @@ export default function NewJobPage() {
               setHasUserManuallyEditedSlug(true);
               setJobSlugInput(e.target.value);
             }}
-            onBlur={() => setJobSlugInput(makeUrlFriendlySlugFromText(jobSlugInput))}
+            onBlur={() =>
+              setJobSlugInput(makeUrlFriendlySlugFromText(jobSlugInput))
+            }
             placeholder="Auto-generated from Title"
             className="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring focus:ring-indigo-200"
           />
           {formValidationErrors.slug && (
-            <p className="text-xs text-rose-600 mt-1">{formValidationErrors.slug}</p>
+            <p className="text-xs text-rose-600 mt-1">
+              {formValidationErrors.slug}
+            </p>
           )}
           <p className="text-xs text-slate-500 mt-1">
             Will be used in URLs, must be unique.
           </p>
         </div>
 
-        {/* ROW: TYPE / LEVEL / STATUS */}
+        {/* TYPE / LEVEL / STATUS GRID */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {/* Type */}
           <div>
-            <label className="block text-sm font-medium text-slate-700">Type</label>
+            <label className="block text-sm font-medium text-slate-700">
+              Type
+            </label>
             <select
               value={selectedEmploymentType}
               onChange={(e) => setSelectedEmploymentType(e.target.value)}
@@ -295,8 +363,11 @@ export default function NewJobPage() {
             </select>
           </div>
 
+          {/* Level */}
           <div>
-            <label className="block text-sm font-medium text-slate-700">Level</label>
+            <label className="block text-sm font-medium text-slate-700">
+              Level
+            </label>
             <select
               value={selectedSeniorityLevel}
               onChange={(e) => setSelectedSeniorityLevel(e.target.value)}
@@ -310,8 +381,11 @@ export default function NewJobPage() {
             </select>
           </div>
 
+          {/* Status */}
           <div>
-            <label className="block text-sm font-medium text-slate-700">Status</label>
+            <label className="block text-sm font-medium text-slate-700">
+              Status
+            </label>
             <select
               value={jobStatusSelectValue}
               onChange={(e) => setJobStatusSelectValue(e.target.value)}
@@ -323,10 +397,12 @@ export default function NewJobPage() {
           </div>
         </div>
 
-        {/* ROW: LOCATION / MIN / MAX SALARY */}
+        {/* LOCATION / MIN / MAX SALARY */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div>
-            <label className="block text-sm font-medium text-slate-700">Location</label>
+            <label className="block text-sm font-medium text-slate-700">
+              Location
+            </label>
             <input
               value={jobLocationInput}
               onChange={(e) => setJobLocationInput(e.target.value)}
@@ -336,7 +412,9 @@ export default function NewJobPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700">Min Salary</label>
+            <label className="block text-sm font-medium text-slate-700">
+              Min Salary
+            </label>
             <input
               type="number"
               inputMode="numeric"
@@ -346,12 +424,16 @@ export default function NewJobPage() {
               className="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring focus:ring-indigo-200"
             />
             {formValidationErrors.minSalary && (
-              <p className="text-xs text-rose-600 mt-1">{formValidationErrors.minSalary}</p>
+              <p className="text-xs text-rose-600 mt-1">
+                {formValidationErrors.minSalary}
+              </p>
             )}
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700">Max Salary</label>
+            <label className="block text-sm font-medium text-slate-700">
+              Max Salary
+            </label>
             <input
               type="number"
               inputMode="numeric"
@@ -361,28 +443,30 @@ export default function NewJobPage() {
               className="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring focus:ring-indigo-200"
             />
             {formValidationErrors.maxSalary && (
-              <p className="text-xs text-rose-600 mt-1">{formValidationErrors.maxSalary}</p>
+              <p className="text-xs text-rose-600 mt-1">
+                {formValidationErrors.maxSalary}
+              </p>
             )}
           </div>
         </div>
 
-        {/* TAGS CSV INPUT */}
+        {/* TAGS */}
         <div>
           <label className="block text-sm font-medium text-slate-700">
             Tags (comma separated)
           </label>
+          <input
+            value={jobTagsCsvInput}
+            onChange={(e) => setJobTagsCsvInput(e.target.value)}
+            placeholder="remote, full-time, senior"
+            className="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring focus:ring-indigo-200"
+          />
+          <p className="text-xs text-slate-500 mt-1">
+            Example: <code>Remote, Full-Time</code>
+          </p>
         </div>
-        <input
-          value={jobTagsCsvInput}
-          onChange={(e) => setJobTagsCsvInput(e.target.value)}
-          placeholder="remote, full-time, senior"
-          className="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring focus:ring-indigo-200"
-        />
-        <p className="text-xs text-slate-500 mt-1">
-          Example: <code>Remote, Full-Time</code>
-        </p>
 
-        {/* SUBMIT AND CANCEL CONTROLS */}
+        {/* SUBMIT AND CANCEL BUTTONS */}
         <div className="flex items-center gap-3 pt-2">
           <button
             type="submit"
@@ -400,6 +484,7 @@ export default function NewJobPage() {
             Cancel
           </button>
 
+          {/* SHOW MUTATION ERROR IF PRESENT */}
           {createJobMutation.isError && (
             <span className="text-xs text-rose-600">
               {(createJobMutation.error &&

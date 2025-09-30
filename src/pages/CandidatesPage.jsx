@@ -6,20 +6,13 @@ import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import { listCandidates, patchCandidate } from "../api/services/candidates.js";
 import { listJobs } from "../api/services/jobs.js";
 
-/* 
-   CONSTANTS AND PURE HELPERS
-   PURPOSE: PROVIDE DISPLAY ORDER, BADGE CLASSES, NORMALIZERS, AND PERSISTENCE
-    */
-const ALL_PIPELINE_STAGES_IN_DISPLAY_ORDER = [
-  "APPLIED",
-  "SCREEN",
-  "TECH",
-  "OFFER",
-  "HIRED",
-  "REJECTED",
-];
+/* -------------------------- CONSTANTS -------------------------- */
 
-const stagePillClassByDisplayStage = {
+// Pipeline stages and display order
+const ALL_PIPELINE_STAGES = ["APPLIED", "SCREEN", "TECH", "OFFER", "HIRED", "REJECTED"];
+
+// Badge colors by stage
+const stageBadgeClass = {
   APPLIED: "bg-blue-100 text-blue-700",
   SCREEN: "bg-yellow-100 text-yellow-700",
   TECH: "bg-purple-100 text-purple-700",
@@ -28,90 +21,56 @@ const stagePillClassByDisplayStage = {
   REJECTED: "bg-red-100 text-red-700",
 };
 
-/* NORMALIZE TO DISPLAY (UPPERCASE) */
-const toDisplayStageUpper = (value) => (value || "").toUpperCase();
+// Normalizers
+const toDisplayStageUpper = (s) => (s || "").toUpperCase();
+const toServerStageLower = (s) => (s || "").toLowerCase();
 
-/* NORMALIZE FOR SERVER (LOWERCASE) */
-const toServerStageLower = (value) => (value || "").toLowerCase();
+// LocalStorage keys
+const LS_SHORTLISTED = "shortlisted_emails";
+const LS_REJECTED = "rejected_emails";
 
-/* LOCALSTORAGE KEYS FOR SHORTLIST/REJECT FLAGS */
-const LOCALSTORAGE_KEY_SHORTLISTED_EMAILS = "shortlisted_emails";
-const LOCALSTORAGE_KEY_REJECTED_EMAILS = "rejected_emails";
-
-/* READ/WRITE SHORTLIST AND REJECT ARRAYS SAFELY */
-const readShortlistedEmailsFromLocalStorage = () => {
+// Helpers to read/write shortlisted/rejected emails
+const readFromLS = (key) => {
   try {
-    return JSON.parse(
-      localStorage.getItem(LOCALSTORAGE_KEY_SHORTLISTED_EMAILS) || "[]"
-    );
+    return JSON.parse(localStorage.getItem(key) || "[]");
   } catch {
     return [];
   }
 };
-const readRejectedEmailsFromLocalStorage = () => {
-  try {
-    return JSON.parse(
-      localStorage.getItem(LOCALSTORAGE_KEY_REJECTED_EMAILS) || "[]"
-    );
-  } catch {
-    return [];
-  }
-};
-const writeShortlistedEmailsToLocalStorage = (emails) => {
-  localStorage.setItem(
-    LOCALSTORAGE_KEY_SHORTLISTED_EMAILS,
-    JSON.stringify(Array.from(new Set(emails)))
-  );
-};
-const writeRejectedEmailsToLocalStorage = (emails) => {
-  localStorage.setItem(
-    LOCALSTORAGE_KEY_REJECTED_EMAILS,
-    JSON.stringify(Array.from(new Set(emails)))
-  );
+const writeToLS = (key, array) => {
+  localStorage.setItem(key, JSON.stringify(Array.from(new Set(array))));
 };
 
-/* 
-   KANBAN BOARD MODAL
-   RESPONSIBILITY: GROUP CANDIDATES BY STAGE AND ALLOW DRAG-AND-DROP STAGE MOVE
-    */
+/* ------------------------ KANBAN MODAL ------------------------ */
+
 function KanbanBoardModal({ candidates, onMoveStage, onClose }) {
-  /* BUILD COLUMNS GROUPED BY DISPLAY STAGE KEYS */
-  const columnDataByStage = useMemo(() => {
-    const initial = Object.fromEntries(
-      ALL_PIPELINE_STAGES_IN_DISPLAY_ORDER.map((s) => [s, []])
-    );
-    candidates.forEach((cand) => {
-      const stageKey = toDisplayStageUpper(cand.stage);
-      if (initial[stageKey]) initial[stageKey].push(cand);
+  // Group candidates by stage
+  const columnsByStage = useMemo(() => {
+    const cols = Object.fromEntries(ALL_PIPELINE_STAGES.map((s) => [s, []]));
+    candidates.forEach((c) => {
+      const stage = toDisplayStageUpper(c.stage);
+      if (cols[stage]) cols[stage].push(c);
     });
-    return initial;
+    return cols;
   }, [candidates]);
 
-  /* HANDLE DRAG-END TO MOVE BETWEEN STAGES */
-  function handleDragEndStageChange(result) {
-    const { destination, source, draggableId } = result;
-    if (!destination) return;
-    if (destination.droppableId === source.droppableId) return;
-
-    const movedCandidateId = Number(draggableId);
-    const nextStageLower = toServerStageLower(destination.droppableId);
-    onMoveStage(movedCandidateId, nextStageLower);
-  }
+  // Handle drag-and-drop stage change
+  const handleDragEnd = (result) => {
+    const { source, destination, draggableId } = result;
+    if (!destination || destination.droppableId === source.droppableId) return;
+    onMoveStage(Number(draggableId), toServerStageLower(destination.droppableId));
+  };
 
   return (
     <div className="fixed inset-0 z-[60]">
-      {/* CLICKING BACKDROP CLOSES MODAL */}
-      <div
-        className="absolute inset-0 bg-black/40 backdrop-blur-sm"
-        onClick={onClose}
-      />
+      {/* Backdrop closes modal */}
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
       <div className="absolute inset-0 p-2 sm:p-4 overflow-auto">
         <div className="mx-auto max-w-[1400px]">
           <div className="rounded-2xl border bg-white shadow-2xl">
+            {/* Header */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 px-3 sm:px-5 py-3 border-b">
-              <div className="text-base sm:text-lg font-semibold text-slate-800">
-                Talent Pipeline
-              </div>
+              <div className="text-base sm:text-lg font-semibold text-slate-800">Talent Pipeline</div>
               <button
                 className="w-full sm:w-auto px-3 py-1.5 rounded-md border bg-white hover:bg-slate-50 text-sm"
                 onClick={onClose}
@@ -120,83 +79,64 @@ function KanbanBoardModal({ candidates, onMoveStage, onClose }) {
               </button>
             </div>
 
-            <div className="px-3 sm:px-4 py-3 sm:py-4">
-              <DragDropContext onDragEnd={handleDragEndStageChange}>
-                <div className="overflow-x-auto pb-2">
-                  {/* MOBILE USES HORIZONTAL FLOW; DESKTOP USES GRID */}
-                  <div className="grid grid-flow-col auto-cols-[280px] sm:auto-cols-[320px] gap-3 sm:gap-4 md:grid-flow-row md:grid-cols-3 xl:grid-cols-6">
-                    {ALL_PIPELINE_STAGES_IN_DISPLAY_ORDER.map((stageKey) => (
-                      <div key={stageKey} className="flex flex-col">
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="text-sm font-semibold text-slate-700">
-                            {stageKey}
-                          </div>
-                          <span
-                            className={`text-[11px] px-2 py-0.5 rounded-full ${
-                              stagePillClassByDisplayStage[stageKey] ||
-                              "bg-slate-100 text-slate-700"
+            {/* Columns */}
+            <div className="px-3 sm:px-4 py-3 sm:py-4 overflow-x-auto">
+              <DragDropContext onDragEnd={handleDragEnd}>
+                <div className="grid grid-flow-col auto-cols-[280px] sm:auto-cols-[320px] gap-3 sm:gap-4 md:grid-flow-row md:grid-cols-3 xl:grid-cols-6">
+                  {ALL_PIPELINE_STAGES.map((stage) => (
+                    <div key={stage} className="flex flex-col">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="text-sm font-semibold text-slate-700">{stage}</div>
+                        <span
+                          className={`text-[11px] px-2 py-0.5 rounded-full ${
+                            stageBadgeClass[stage] || "bg-slate-100 text-slate-700"
+                          }`}
+                        >
+                          {columnsByStage[stage]?.length || 0}
+                        </span>
+                      </div>
+
+                      <Droppable droppableId={stage} type="CARD">
+                        {(provided, snapshot) => (
+                          <div
+                            ref={provided.innerRef}
+                            {...provided.droppableProps}
+                            className={`min-h-[55vh] sm:min-h-[60vh] rounded-xl border p-2 transition ${
+                              snapshot.isDraggingOver
+                                ? "bg-indigo-50 border-indigo-200"
+                                : "bg-slate-50 border-slate-200"
                             }`}
                           >
-                            {columnDataByStage[stageKey]?.length ?? 0}
-                          </span>
-                        </div>
-
-                        <Droppable droppableId={stageKey} type="CARD">
-                          {(provided, snapshot) => (
-                            <div
-                              ref={provided.innerRef}
-                              {...provided.droppableProps}
-                              className={`min-h-[55vh] sm:min-h-[60vh] rounded-xl border p-2 transition ${
-                                snapshot.isDraggingOver
-                                  ? "bg-indigo-50 border-indigo-200"
-                                  : "bg-slate-50 border-slate-200"
-                              }`}
-                            >
-                              {(columnDataByStage[stageKey] || []).map(
-                                (cand, index) => (
-                                  <Draggable
-                                    key={String(cand.id)}
-                                    draggableId={String(cand.id)}
-                                    index={index}
+                            {(columnsByStage[stage] || []).map((cand, idx) => (
+                              <Draggable key={cand.id} draggableId={String(cand.id)} index={idx}>
+                                {(dragProvided, dragSnapshot) => (
+                                  <div
+                                    ref={dragProvided.innerRef}
+                                    {...dragProvided.draggableProps}
+                                    {...dragProvided.dragHandleProps}
+                                    className={`rounded-xl bg-white border p-3 shadow-sm mb-2 transition ${
+                                      dragSnapshot.isDragging ? "rotate-[0.2deg] shadow-md" : ""
+                                    }`}
                                   >
-                                    {(dragProvided, dragSnapshot) => (
-                                      <div
-                                        ref={dragProvided.innerRef}
-                                        {...dragProvided.draggableProps}
-                                        {...dragProvided.dragHandleProps}
-                                        className={`rounded-xl bg-white border p-3 shadow-sm mb-2 transition ${
-                                          dragSnapshot.isDragging
-                                            ? "rotate-[0.2deg] shadow-md"
-                                            : ""
-                                        }`}
-                                      >
-                                        <div className="flex items-center justify-between">
-                                          <div className="flex items-center gap-3">
-                                            <div className="h-8 w-8 rounded-full bg-slate-200 grid place-items-center text-xs font-medium text-slate-700">
-                                              {cand.name?.[0] || "?"}
-                                            </div>
-                                            <div>
-                                              <div className="text-[13px] font-medium text-slate-900">
-                                                {cand.name}
-                                              </div>
-                                              <div className="text-[11px] text-slate-500">
-                                                {cand.position || "—"}
-                                              </div>
-                                            </div>
-                                          </div>
-                                        </div>
+                                    <div className="flex items-center gap-3">
+                                      <div className="h-8 w-8 rounded-full bg-slate-200 grid place-items-center text-xs font-medium text-slate-700">
+                                        {cand.name?.[0] || "?"}
                                       </div>
-                                    )}
-                                  </Draggable>
-                                )
-                              )}
-                              {provided.placeholder}
-                            </div>
-                          )}
-                        </Droppable>
-                      </div>
-                    ))}
-                  </div>
+                                      <div>
+                                        <div className="text-[13px] font-medium text-slate-900">{cand.name}</div>
+                                        <div className="text-[11px] text-slate-500">{cand.position || "—"}</div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
+                              </Draggable>
+                            ))}
+                            {provided.placeholder}
+                          </div>
+                        )}
+                      </Droppable>
+                    </div>
+                  ))}
                 </div>
               </DragDropContext>
             </div>
@@ -207,327 +147,224 @@ function KanbanBoardModal({ candidates, onMoveStage, onClose }) {
   );
 }
 
-/* 
-   CANDIDATES PAGE (DEFAULT EXPORT)
-   RESPONSIBILITY: LOAD CANDIDATES/JOBS, HYDRATE POSITION, FILTER/PAGE/VIRTUALIZE,
-                   SUPPORT STAGE MOVES WITH OPTIMISTIC UPDATE, AND PERSIST BADGES
-    */
+/* ------------------------ CANDIDATES PAGE ------------------------ */
+
 export default function CandidatesPage() {
   const navigate = useNavigate();
 
-  /* DATA ARRAYS AND NETWORK STATE */
-  const [allCandidateRecordsForUi, setAllCandidateRecordsForUi] = useState([]);
-  const [isLoadingCandidates, setIsLoadingCandidates] = useState(true);
-  const [loadingErrorMessage, setLoadingErrorMessage] = useState(null);
+  /* -------------------- DATA AND STATE -------------------- */
+  const [candidates, setCandidates] = useState([]);
+  const [jobs, setJobs] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  /* FILTERING, STAGE SELECTOR, PAGINATION, AND KANBAN VISIBILITY */
-  const [searchQueryText, setSearchQueryText] = useState("");
-  const [selectedStageDisplayValue, setSelectedStageDisplayValue] =
-    useState("");
-  const [currentPageIndexOneBased, setCurrentPageIndexOneBased] = useState(1);
-  const [isKanbanBoardVisible, setIsKanbanBoardVisible] = useState(false);
+  const [searchText, setSearchText] = useState("");
+  const [selectedStage, setSelectedStage] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [isKanbanOpen, setIsKanbanOpen] = useState(false);
 
-  /* LOCAL BADGE STATE FOR SHORTLIST/REJECT */
-  const [shortlistedCandidates, setShortlistedCandidates] = useState([]);
-  const [rejectedCandidates, setRejectedCandidates] = useState([]);
+  const [shortlisted, setShortlisted] = useState([]);
+  const [rejected, setRejected] = useState([]);
 
-  /* VIRTUALIZATION CONSTANTS */
-  const pageSize = 10;
-  const ITEM_HEIGHT_PIXELS = 92;
-  const virtualListRef = useRef(null);
+  const ITEM_HEIGHT = 92;
+  const PAGE_SIZE = 10;
+  const listRef = useRef(null);
 
-  /* LOAD CANDIDATES AND JOB TITLES; HYDRATE POSITION FROM JOB WHEN MISSING */
+  /* -------------------- FETCH CANDIDATES AND JOBS -------------------- */
   useEffect(() => {
-    let didAbort = false;
+    let aborted = false;
 
-    async function fetchCandidatesAndJobs() {
+    async function fetchData() {
       try {
-        setIsLoadingCandidates(true);
-        setLoadingErrorMessage(null);
+        setLoading(true);
+        setError(null);
 
-        const [jobsResponse, candidatesResponse] = await Promise.all([
-          listJobs({ page: 1, pageSize: 2000, sort: "order" }),
+        const [jobsRes, candidatesRes] = await Promise.all([
+          listJobs({ page: 1, pageSize: 2000 }),
           listCandidates({ page: 1, pageSize: 2000 }),
         ]);
 
-        const jobTitleById = new Map(
-          (jobsResponse.items || []).map((j) => [j.id, j.title])
-        );
+        if (aborted) return;
 
-        const hydratedCandidates = (candidatesResponse.items || []).map(
-          (c) => ({
-            ...c,
-            position: c.position || jobTitleById.get(c.jobId) || "—",
-          })
-        );
+        const jobMap = new Map((jobsRes.items || []).map((j) => [j.id, j.title]));
+        const hydratedCandidates = (candidatesRes.items || []).map((c) => ({
+          ...c,
+          position: c.position || jobMap.get(c.jobId) || "—",
+        }));
 
-        if (!didAbort) setAllCandidateRecordsForUi(hydratedCandidates);
-      } catch (e) {
-        if (!didAbort) setLoadingErrorMessage(e?.message || "Failed to load");
+        setCandidates(hydratedCandidates);
+        setJobs(jobsRes.items || []);
+      } catch (err) {
+        if (!aborted) setError(err?.message || "Failed to load");
       } finally {
-        if (!didAbort) setIsLoadingCandidates(false);
+        if (!aborted) setLoading(false);
       }
     }
 
-    fetchCandidatesAndJobs();
-    return () => {
-      didAbort = true;
-    };
+    fetchData();
+    return () => (aborted = true);
   }, []);
 
-  /* INITIALIZE SHORTLIST/REJECT BADGES AFTER DATA ARRIVES */
+  /* -------------------- LOAD SHORTLIST/REJECT FROM LOCALSTORAGE -------------------- */
   useEffect(() => {
-    const shortlistedEmails = readShortlistedEmailsFromLocalStorage();
-    const rejectedEmails = readRejectedEmailsFromLocalStorage();
-    setShortlistedCandidates(
-      allCandidateRecordsForUi.filter((c) =>
-        shortlistedEmails.includes(c.email)
-      )
-    );
-    setRejectedCandidates(
-      allCandidateRecordsForUi.filter((c) => rejectedEmails.includes(c.email))
-    );
-  }, [allCandidateRecordsForUi]);
+    const shortlistedEmails = readFromLS(LS_SHORTLISTED);
+    const rejectedEmails = readFromLS(LS_REJECTED);
 
-  /* PERSIST BADGES BACK TO LOCALSTORAGE WHEN THEY CHANGE */
-  useEffect(() => {
-    writeShortlistedEmailsToLocalStorage(
-      shortlistedCandidates.map((c) => c.email)
-    );
-  }, [shortlistedCandidates]);
-  useEffect(() => {
-    writeRejectedEmailsToLocalStorage(rejectedCandidates.map((c) => c.email));
-  }, [rejectedCandidates]);
+    setShortlisted(candidates.filter((c) => shortlistedEmails.includes(c.email)));
+    setRejected(candidates.filter((c) => rejectedEmails.includes(c.email)));
+  }, [candidates]);
 
-  /* FILTER AND PAGE DERIVATIONS FOR VIRTUALIZED LIST */
-  const { filteredAll, totalCount, totalPageCount } = useMemo(() => {
-    const normalizedQuery = searchQueryText.trim().toLowerCase();
-    const wantedStageLower = selectedStageDisplayValue
-      ? toServerStageLower(selectedStageDisplayValue)
-      : "";
+  /* -------------------- PERSIST SHORTLIST/REJECT -------------------- */
+  useEffect(() => writeToLS(LS_SHORTLISTED, shortlisted.map((c) => c.email)), [shortlisted]);
+  useEffect(() => writeToLS(LS_REJECTED, rejected.map((c) => c.email)), [rejected]);
 
-    const filtered = allCandidateRecordsForUi.filter((c) => {
-      const stageMatches =
-        !wantedStageLower || String(c.stage).toLowerCase() === wantedStageLower;
-      const textMatches =
-        !normalizedQuery ||
-        (c.name && c.name.toLowerCase().includes(normalizedQuery)) ||
-        (c.email && c.email.toLowerCase().includes(normalizedQuery));
-      return stageMatches && textMatches;
+  /* -------------------- FILTERED & PAGINATED CANDIDATES -------------------- */
+  const { filteredCandidates, totalCount, totalPages } = useMemo(() => {
+    const query = searchText.trim().toLowerCase();
+    const stageLower = selectedStage ? toServerStageLower(selectedStage) : "";
+
+    const filtered = candidates.filter((c) => {
+      const stageMatch = !stageLower || c.stage?.toLowerCase() === stageLower;
+      const textMatch =
+        !query ||
+        (c.name?.toLowerCase().includes(query)) ||
+        (c.email?.toLowerCase().includes(query));
+      return stageMatch && textMatch;
     });
 
     return {
-      filteredAll: filtered,
+      filteredCandidates: filtered,
       totalCount: filtered.length,
-      totalPageCount: Math.max(1, Math.ceil(filtered.length / pageSize)),
+      totalPages: Math.max(1, Math.ceil(filtered.length / PAGE_SIZE)),
     };
-  }, [allCandidateRecordsForUi, searchQueryText, selectedStageDisplayValue]);
+  }, [candidates, searchText, selectedStage]);
 
-  /* ENSURE CURRENT PAGE IS WITHIN BOUNDS AFTER FILTERS CHANGE */
+  /* Adjust page if out of bounds */
   useEffect(() => {
-    if (currentPageIndexOneBased > totalPageCount) {
-      setCurrentPageIndexOneBased(totalPageCount);
-    }
-  }, [currentPageIndexOneBased, totalPageCount]);
+    if (currentPage > totalPages) setCurrentPage(totalPages);
+  }, [currentPage, totalPages]);
 
-  /* SCROLL VIRTUAL LIST TO TOP OF CURRENT PAGE WHEN PAGE CHANGES */
+  /* Scroll virtual list to top of current page */
   useEffect(() => {
-    const startIndex = (currentPageIndexOneBased - 1) * pageSize;
-    virtualListRef.current?.scrollToItem(
-      Math.min(startIndex, Math.max(0, totalCount - 1)),
-      "start"
-    );
-  }, [currentPageIndexOneBased, totalCount]);
+    const startIndex = (currentPage - 1) * PAGE_SIZE;
+    listRef.current?.scrollToItem(Math.min(startIndex, Math.max(0, totalCount - 1)), "start");
+  }, [currentPage, totalCount]);
 
-  const atFirstPage = currentPageIndexOneBased === 1;
-  const atLastPage = currentPageIndexOneBased === totalPageCount;
+  /* -------------------- NAVIGATION -------------------- */
+  const openCandidateProfile = (c) => {
+    sessionStorage.setItem("candidate_profile_last", JSON.stringify(c));
+    navigate(`/hr/candidates/${c.id}`, { state: { candidate: c } });
+  };
 
-  /* OPEN CANDIDATE PROFILE ROUTE WITH FALLBACK STATE SAVED */
-  function handleOpenCandidateProfile(candidateRecord) {
-    sessionStorage.setItem(
-      "candidate_profile_last",
-      JSON.stringify(candidateRecord)
-    );
-    navigate(`/hr/candidates/${candidateRecord.id}`, {
-      state: { candidate: candidateRecord },
-    });
-  }
+  /* -------------------- OPTIMISTIC STAGE MOVE -------------------- */
+  const moveCandidateStage = async (id, nextStage) => {
+    const prev = candidates.find((c) => c.id === id)?.stage;
 
-  /* MOVE STAGE WITH OPTIMISTIC UPDATE AND ROLLBACK ON FAILURE */
-  async function moveCandidateToNewStageWithOptimisticUpdate(
-    candidateId,
-    nextStageLower
-  ) {
-    const previousRecord = allCandidateRecordsForUi.find(
-      (c) => c.id === candidateId
-    );
-    const previousStage = previousRecord?.stage;
-
-    setAllCandidateRecordsForUi((list) =>
-      list.map((c) =>
-        c.id === candidateId ? { ...c, stage: nextStageLower } : c
-      )
+    setCandidates((list) =>
+      list.map((c) => (c.id === id ? { ...c, stage: nextStage } : c))
     );
 
     try {
-      await patchCandidate(candidateId, {
-        stage: nextStageLower,
-        by: "Pipeline",
-        note: `Moved to ${nextStageLower}`,
-      });
+      await patchCandidate(id, { stage: nextStage, by: "Pipeline", note: `Moved to ${nextStage}` });
     } catch {
-      setAllCandidateRecordsForUi((list) =>
-        list.map((c) =>
-          c.id === candidateId ? { ...c, stage: previousStage } : c
-        )
+      // rollback on error
+      setCandidates((list) =>
+        list.map((c) => (c.id === id ? { ...c, stage: prev } : c))
       );
     }
-  }
+  };
 
-  /* VIRTUALIZED ROW RENDERER */
-  const VirtualizedCandidateRow = ({ index, style }) => {
-    const cand = filteredAll[index];
-    if (!cand) return <div style={style} className="px-1" />;
+  /* -------------------- VIRTUALIZED CANDIDATE ROW -------------------- */
+  const CandidateRow = ({ index, style }) => {
+    const c = filteredCandidates[index];
+    if (!c) return <div style={style} />;
 
-    const isShortlisted = shortlistedCandidates.some(
-      (sc) => sc.email === cand.email
-    );
-    const isRejected = rejectedCandidates.some((rc) => rc.email === cand.email);
-    const displayStage = toDisplayStageUpper(cand.stage);
+    const isShortlisted = shortlisted.some((s) => s.email === c.email);
+    const isRejected = rejected.some((r) => r.email === c.email);
+    const stage = toDisplayStageUpper(c.stage);
 
     return (
       <div style={style} className="px-0">
         <div
           className="rounded-2xl border bg-white p-5 shadow-sm hover:shadow-md transition cursor-pointer relative"
-          onClick={() => handleOpenCandidateProfile(cand)}
+          onClick={() => openCandidateProfile(c)}
         >
-          {isShortlisted && (
-            <div className="absolute top-4 right-4 bg-emerald-100 text-emerald-700 p-1 rounded-full">
-              <span className="text-emerald-600">✓</span>
-            </div>
-          )}
-          {isRejected && (
-            <div className="absolute top-4 right-4 bg-red-100 text-red-700 p-1 rounded-full">
-              <span className="text-red-600">✕</span>
-            </div>
-          )}
+          {isShortlisted && <div className="absolute top-4 right-4 bg-emerald-100 text-emerald-700 p-1 rounded-full">✓</div>}
+          {isRejected && <div className="absolute top-4 right-4 bg-red-100 text-red-700 p-1 rounded-full">✕</div>}
 
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <div className="h-10 w-10 rounded-full bg-slate-200 grid place-items-center text-sm font-medium text-slate-700">
-                {cand.name?.[0] || "?"}
-              </div>
+              <div className="h-10 w-10 rounded-full bg-slate-200 grid place-items-center text-sm font-medium text-slate-700">{c.name?.[0] || "?"}</div>
               <div>
-                <div className="text-slate-900 font-semibold text-[15px]">
-                  {cand.name}
-                </div>
-                <div className="text-[12px] text-slate-500">
-                  {cand.position || "—"}
-                </div>
+                <div className="text-slate-900 font-semibold text-[15px]">{c.name}</div>
+                <div className="text-[12px] text-slate-500">{c.position || "—"}</div>
               </div>
             </div>
-            <span
-              className={`text-xs px-2.5 py-1 rounded-full ${
-                stagePillClassByDisplayStage[displayStage] ||
-                "bg-slate-100 text-slate-700"
-              }`}
-            >
-              {displayStage}
-            </span>
+            <span className={`text-xs px-2.5 py-1 rounded-full ${stageBadgeClass[stage] || "bg-slate-100 text-slate-700"}`}>{stage}</span>
           </div>
         </div>
       </div>
     );
   };
 
-  /* STABLE KEY FOR VIRTUALIZED ROWS */
-  const virtualizedRowKey = (index) => {
-    const cand = filteredAll[index];
-    return cand ? `${cand.id}-${cand.email}` : `empty-${index}`;
-    // NOTE: KEYS HELP THE VIRTUALIZER PRESERVE ROW STATE
+  const rowKey = (index) => {
+    const c = filteredCandidates[index];
+    return c ? `${c.id}-${c.email}` : `empty-${index}`;
   };
 
-  /* 
-     RENDER GATES FOR LOADING/ERROR, THEN MAIN UI
-      */
-  if (isLoadingCandidates) {
-    return (
-      <div className="rounded-2xl border bg-white p-8 text-center text-slate-500">
-        Loading candidates…
-      </div>
-    );
-  }
-  if (loadingErrorMessage) {
-    return (
-      <div className="rounded-2xl border bg-white p-8 text-center text-red-600">
-        Failed to load candidates: {loadingErrorMessage}
-      </div>
-    );
-  }
+  /* -------------------- RENDER -------------------- */
+  if (loading) return <div className="rounded-2xl border bg-white p-8 text-center text-slate-500">Loading candidates…</div>;
+  if (error) return <div className="rounded-2xl border bg-white p-8 text-center text-red-600">Failed to load: {error}</div>;
 
   return (
     <div className="space-y-4">
-      {/* FILTER BAR AND KANBAN ENTRYPOINT */}
+      {/* Filter bar */}
       <div className="flex flex-col sm:flex-row gap-2 bg-white border rounded-2xl p-3 shadow-sm">
         <input
-          value={searchQueryText}
-          onChange={(e) => {
-            setSearchQueryText(e.target.value);
-            setCurrentPageIndexOneBased(1);
-          }}
+          value={searchText}
+          onChange={(e) => { setSearchText(e.target.value); setCurrentPage(1); }}
           placeholder="Search candidates by name or email…"
           className="border rounded-lg px-3 py-2 focus:outline-none focus:ring focus:ring-indigo-200 w-full sm:flex-1"
         />
         <select
-          value={selectedStageDisplayValue}
-          onChange={(e) => {
-            setSelectedStageDisplayValue(e.target.value);
-            setCurrentPageIndexOneBased(1);
-          }}
+          value={selectedStage}
+          onChange={(e) => { setSelectedStage(e.target.value); setCurrentPage(1); }}
           className="border rounded-lg px-3 py-2 w-full sm:w-[180px]"
         >
           <option value="">All stages</option>
-          {ALL_PIPELINE_STAGES_IN_DISPLAY_ORDER.map((stageLabel) => (
-            <option key={stageLabel} value={stageLabel}>
-              {stageLabel}
-            </option>
-          ))}
+          {ALL_PIPELINE_STAGES.map((stage) => <option key={stage} value={stage}>{stage}</option>)}
         </select>
-
         <button
-          onClick={() => setIsKanbanBoardVisible(true)}
+          onClick={() => setIsKanbanOpen(true)}
           className="w-full sm:w-auto justify-center px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium shadow hover:bg-indigo-700"
-          title="Open Kanban Board"
         >
           Kanban Board
         </button>
       </div>
 
-      {/* VIRTUALIZED LIST OF FILTERED CANDIDATES */}
+      {/* Candidate list */}
       {totalCount === 0 ? (
-        <div className="rounded-2xl border bg-white p-8 text-center text-slate-500">
-          No candidates found.
-        </div>
+        <div className="rounded-2xl border bg-white p-8 text-center text-slate-500">No candidates found.</div>
       ) : (
         <List
-          ref={virtualListRef}
+          ref={listRef}
           height={520}
           width="100%"
           itemCount={totalCount}
-          itemSize={ITEM_HEIGHT_PIXELS}
+          itemSize={ITEM_HEIGHT}
           overscanCount={6}
-          itemKey={virtualizedRowKey}
+          itemKey={rowKey}
         >
-          {VirtualizedCandidateRow}
+          {CandidateRow}
         </List>
       )}
 
-      {/* KANBAN OVERLAY FOR DRAG-AND-DROP STAGE MOVES */}
-      {isKanbanBoardVisible && (
+      {/* Kanban modal */}
+      {isKanbanOpen && (
         <KanbanBoardModal
-          candidates={allCandidateRecordsForUi}
-          onMoveStage={moveCandidateToNewStageWithOptimisticUpdate}
-          onClose={() => setIsKanbanBoardVisible(false)}
+          candidates={candidates}
+          onMoveStage={moveCandidateStage}
+          onClose={() => setIsKanbanOpen(false)}
         />
       )}
     </div>

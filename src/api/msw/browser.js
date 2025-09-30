@@ -17,7 +17,8 @@ export async function startMSW() {
   if (typeof window === "undefined") return;
 
   // Explicit feature flag for ALL envs (dev/preview/prod)
-  const isEnabled = import.meta.env.VITE_ENABLE_MSW === "1";
+  // const isEnabled = import.meta.env.VITE_ENABLE_MSW === "1";
+const isEnabled = true; // force-enable MSW
 
   // Guard: already started or not enabled → do nothing
   if (hasMockServiceWorkerStarted || !isEnabled) return;

@@ -4,7 +4,7 @@ import { useNavigate, Link, useLocation } from "react-router-dom";
 import Toasts from "../components/common/Toasts.jsx";
 import { useToastStore } from "../store/index.js";
 
-/* ICONS USED FOR ROW ACTIONS */
+/* ICONS FOR ROW ACTION BUTTONS */
 import {
   Archive,
   ArchiveRestore,
@@ -14,24 +14,30 @@ import {
   ChevronDown,
 } from "lucide-react";
 
-/* READ-ONLY API SERVICE FOR JOB LISTING */
+/* READ-ONLY API SERVICE TO FETCH JOBS */
 import { listJobs } from "../api/services/jobs.js";
 
 /* 
-   IN-MEMORY, SESSION-SCOPED PATCH STORE
-   PURPOSE: HOLD UI-ONLY EDITS (REORDER/ARCHIVE/DELETE/RENAME) THAT DO NOT HIT THE SERVER
-   LIFETIME: CLEARED WHEN THE PAGE IS RELOADED OR THE APP IS RESTARTED
-   KEY: JOB ID → VALUE: PARTIAL PATCH { title?, company?, status?, order?, __deleted? }
-   */
+   SESSION-SCOPED PATCH MAP
+   -----------------------
+   Purpose: Keep UI-only edits like reordering, archive/unarchive, delete, or rename.
+   Scope: Memory-only; resets on page reload.
+   Structure: Map<jobId, { title?, company?, status?, order?, __deleted? }>
+*/
 const __sessionScopedJobPatchMap = new Map();
 
 /* 
-   APPLY SESSION PATCHES AND PRODUCE A SORTED LIST
-   INPUT: RAW ITEMS FROM SERVER (READ-ONLY)
-   OUTPUT: ARRAY AFTER (1) FILTERING TEMP DELETES (2) APPLYING PATCHES (3) ORDERING BY "order" */
+   APPLY SESSION PATCHES AND SORT JOBS
+   -----------------------------------
+   Input: Raw job list from server
+   Steps:
+     1. Filter out jobs marked as temporarily deleted.
+     2. Apply any session-only patches.
+     3. Sort by "order" field (fallback to original server order if missing).
+*/
 function applySessionPatchesAndSortByOrder(rawItems) {
   const patched = rawItems
-    .filter((job) => !(__sessionScopedJobPatchMap.get(job.id)?.__deleted))
+    .filter((job) => !__sessionScopedJobPatchMap.get(job.id)?.__deleted)
     .map((job, indexFromServer) => {
       const pendingPatch = __sessionScopedJobPatchMap.get(job.id) || {};
       const computedOrder =
@@ -39,7 +45,7 @@ function applySessionPatchesAndSortByOrder(rawItems) {
           ? pendingPatch.order
           : job.order !== undefined
           ? job.order
-          : indexFromServer; // FALLBACK TO ORIGINAL SERVER ORDER
+          : indexFromServer; // fallback to server-provided order
       return { ...job, ...pendingPatch, order: computedOrder };
     });
 
@@ -48,38 +54,58 @@ function applySessionPatchesAndSortByOrder(rawItems) {
 }
 
 /* 
-   REMEMBER A SESSION-ONLY EDIT FOR A GIVEN JOB
-   MERGE STRATEGY: SHALLOW MERGE OF EXISTING PATCH OBJECT WITH NEW FIELDS*/
+   STORE A SESSION-ONLY PATCH FOR A JOB
+   ------------------------------------
+   Merges the new patch with any existing patch for the same job ID.
+*/
 function rememberSessionScopedEdit(jobId, partialPatch) {
   const previous = __sessionScopedJobPatchMap.get(jobId) || {};
   __sessionScopedJobPatchMap.set(jobId, { ...previous, ...partialPatch });
 }
 
-/* EDIT JOB MODAL
-   RESPONSIBILITY: CAPTURE TITLE/COMPANY CHANGES AND RETURN A UI-ONLY PATCH VIA onSave
-   NOTE: THIS COMPONENT DOES NOT PERFORM ANY NETWORK REQUESTS */
+/* -----------------------------
+   EDIT JOB MODAL (UI-ONLY)
+   -----------------------------
+   Purpose: Allow HR to update job title or company temporarily.
+   Note: Does not send updates to the server; changes live in memory only.
+*/
 function EditJobModal({ job, onClose, onSave }) {
-  const [editedJobTitleInput, setEditedJobTitleInput] = useState(job.title || "");
-  const [editedCompanyNameInput, setEditedCompanyNameInput] = useState(job.company || "");
+  const [editedJobTitleInput, setEditedJobTitleInput] = useState(
+    job.title || ""
+  );
+  const [editedCompanyNameInput, setEditedCompanyNameInput] = useState(
+    job.company || ""
+  );
 
   const handleSubmitEditedFields = (e) => {
     e.preventDefault();
-    onSave({ ...job, title: editedJobTitleInput, company: editedCompanyNameInput });
+    onSave({
+      ...job,
+      title: editedJobTitleInput,
+      company: editedCompanyNameInput,
+    });
   };
 
   return (
     <div className="fixed inset-0 z-50">
-      {/* CLICKING BACKDROP CLOSES THE MODAL */}
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-      {/* CENTERED MODAL CONTENT */}
+      {/* Backdrop closes modal */}
+      <div
+        className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+        onClick={onClose}
+      />
+      {/* Centered modal content */}
       <div className="absolute inset-0 flex items-center justify-center p-4">
         <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl border p-5">
-          <h2 className="text-lg font-semibold text-slate-800 mb-4">Edit Job</h2>
+          <h2 className="text-lg font-semibold text-slate-800 mb-4">
+            Edit Job
+          </h2>
 
           <form onSubmit={handleSubmitEditedFields} className="space-y-4">
             {/* JOB TITLE FIELD */}
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Job Title</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1">
+                Job Title
+              </label>
               <input
                 type="text"
                 value={editedJobTitleInput}
@@ -91,7 +117,9 @@ function EditJobModal({ job, onClose, onSave }) {
 
             {/* COMPANY NAME FIELD */}
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Company</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1">
+                Company
+              </label>
               <input
                 type="text"
                 value={editedCompanyNameInput}
@@ -118,9 +146,10 @@ function EditJobModal({ job, onClose, onSave }) {
               </button>
             </div>
 
-            {/* DISCLOSURE ABOUT SESSION SCOPE */}
+            {/* DISCLOSURE: TEMPORARY SESSION SCOPE */}
             <p className="text-xs text-slate-500 pt-2">
-              This change is <strong>temporary</strong> and will reset on page refresh.
+              This change is <strong>temporary</strong> and will reset on page
+              refresh.
             </p>
           </form>
         </div>
@@ -129,9 +158,16 @@ function EditJobModal({ job, onClose, onSave }) {
   );
 }
 
-/* ROW ITEM
-   RESPONSIBILITY: RENDER A SINGLE JOB WITH CONTEXTUAL ACTIONS (APPLY/EDIT/ARCHIVE/DELETE)
-   PROP onRowClick: NAVIGATE TO DETAILS WITHOUT TRIGGERING WHEN CLICKING ACTION BUTTONS*/
+/* -----------------------------
+   ROW ITEM COMPONENT
+   -----------------------------
+   Responsibility: Display a single job in the list.
+   Supports:
+     - HR actions: edit, archive/unarchive, delete
+     - Job seeker actions: apply, archive/unarchive
+     - Optional order controls (HR only)
+     - Stop event propagation so clicking buttons doesn't trigger row navigation
+*/
 function RowItem({
   job,
   isHR,
@@ -154,11 +190,11 @@ function RowItem({
       onClick={() => onRowClick(job)}
       className={`flex items-center justify-between rounded-xl border bg-white p-4 shadow-sm hover:shadow-md transition cursor-pointer ${archivedOpacityClass}`}
     >
-      {/* LEFT SIDE: ORDER CONTROLS (HR ONLY) + TITLE/COMPANY */}
+      {/* LEFT SIDE: ORDER CONTROLS + TITLE/COMPANY */}
       <div className="flex items-center gap-2 min-w-0">
         {isHR && (
           <div className="flex flex-col gap-1 mr-1">
-            {/* MOVE UP TEMPORARILY */}
+            {/* MOVE UP */}
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -171,7 +207,7 @@ function RowItem({
               <ChevronUp className="h-4 w-4" />
             </button>
 
-            {/* MOVE DOWN TEMPORARILY */}
+            {/* MOVE DOWN */}
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -186,7 +222,7 @@ function RowItem({
           </div>
         )}
 
-        {/* JOB TITLE + OPTIONAL ARCHIVE BADGE + COMPANY NAME */}
+        {/* JOB TITLE + COMPANY */}
         <div>
           <div className="font-semibold text-slate-900 flex items-center gap-2">
             {job.title}
@@ -200,12 +236,14 @@ function RowItem({
         </div>
       </div>
 
-      {/* RIGHT SIDE: ACTION BUTTONS; STOP PROPAGATION TO AVOID ROW NAVIGATION */}
-      <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+      {/* RIGHT SIDE: ACTION BUTTONS */}
+      <div
+        className="flex items-center gap-2"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* JOB SEEKER ACTIONS */}
         {isJobSeeker && (
           <>
-            {/* APPLY IS AVAILABLE ONLY WHEN NOT ARCHIVED */}
             {!isArchived && (
               <button
                 onClick={() => onApply(job)}
@@ -214,18 +252,21 @@ function RowItem({
                 Apply
               </button>
             )}
-            {/* ARCHIVE/UNARCHIVE AS A NO-OP ON SERVER, SESSION ONLY */}
             <button
               onClick={() => onToggleArchive(job)}
               className="p-2 rounded-lg border bg-white hover:bg-slate-50 text-slate-700"
               title={isArchived ? "Unarchive (temp)" : "Archive (temp)"}
             >
-              {isArchived ? <ArchiveRestore className="h-4 w-4" /> : <Archive className="h-4 w-4" />}
+              {isArchived ? (
+                <ArchiveRestore className="h-4 w-4" />
+              ) : (
+                <Archive className="h-4 w-4" />
+              )}
             </button>
           </>
         )}
 
-        {/* HR ACTIONS: EDIT / ARCHIVE / DELETE — ALL SESSION-ONLY */}
+        {/* HR ACTIONS */}
         {isHR && (
           <>
             <button
@@ -241,7 +282,11 @@ function RowItem({
               className="p-2 rounded-lg border bg-white hover:bg-slate-50 text-slate-700"
               title={isArchived ? "Unarchive (temp)" : "Archive (temp)"}
             >
-              {isArchived ? <ArchiveRestore className="h-4 w-4" /> : <Archive className="h-4 w-4" />}
+              {isArchived ? (
+                <ArchiveRestore className="h-4 w-4" />
+              ) : (
+                <Archive className="h-4 w-4" />
+              )}
             </button>
 
             <button
@@ -258,41 +303,53 @@ function RowItem({
   );
 }
 
-/* JOBS PAGE (DEFAULT EXPORT)
-   RESPONSIBILITY: FETCH DATA, APPLY SESSION PATCHES, SUPPORT SEARCH/REORDER/ARCHIVE,
-                   AND COORDINATE MODAL EDITS — ALL WITHOUT SERVER MUTATIONS */
+/* -----------------------------
+   MAIN JOBS PAGE
+   -----------------------------
+   Responsibilities:
+     - Fetch jobs from read-only API
+     - Apply session-only patches
+     - Support search, reorder, archive/unarchive, temporary delete
+     - Coordinate edit modal (HR only)
+*/
 export default function JobsPage() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const pushToast = useToastStore((s) => s.push);
 
-  /* ROLE AWARENESS DRIVEN BY ROUTE PREFIX */
+  /* Detect role based on route prefix */
   const isJobSeekerRoute = pathname.startsWith("/jobseeker");
   const isHrRoute = pathname.startsWith("/hr");
 
-  /* STATE FOR VISIBLE JOBS AND CONTROLS */
+  /* STATE */
   const [jobListForUi, setJobListForUi] = useState([]);
   const [searchQueryText, setSearchQueryText] = useState("");
-  const [jobRecordCurrentlyBeingEdited, setJobRecordCurrentlyBeingEdited] = useState(null);
+  const [jobRecordCurrentlyBeingEdited, setJobRecordCurrentlyBeingEdited] =
+    useState(null);
 
-  /* PAGINATION CONSTANTS (SINGLE BIG PAGE FOR SIMPLICITY) */
+  /* PAGINATION (simplified: load all in one page) */
   const page = 1;
   const pageSize = 2000;
 
-  /* EFFECT: FETCH JOBS AND APPLY SESSION PATCHES
-     TRIGGERS: CHANGES IN SEARCH QUERY
-     NOTE: listJobs IS READ-ONLY; ALL MUTATIONS ARE MAINTAINED LOCALLY IN MEMORY */
+  /* FETCH JOBS AND APPLY SESSION PATCHES */
   useEffect(() => {
     (async () => {
-      const response = await listJobs({ search: searchQueryText, page, pageSize, sort: "order" });
+      const response = await listJobs({
+        search: searchQueryText,
+        page,
+        pageSize,
+        sort: "order",
+      });
       const patched = applySessionPatchesAndSortByOrder(response.items || []);
       setJobListForUi(patched);
     })();
   }, [searchQueryText]);
 
-  /* TEMPORARY ACTIONS (SESSION-ONLY; NO SERVER REQUESTS) */
+  /* -----------------------------
+     SESSION-ONLY ACTIONS
+     ----------------------------- */
 
-  /* TOGGLE ARCHIVE FLAG FOR A JOB AND RE-APPLY PATCHES */
+  /* Toggle archive/unarchive */
   function handleToggleArchiveStatus(job) {
     const nextStatus = job.status === "archived" ? "active" : "archived";
 
@@ -304,10 +361,15 @@ export default function JobsPage() {
       )
     );
 
-    pushToast?.(`${nextStatus === "archived" ? "Archived" : "Unarchived"} "${job.title}" (temp)`, "ok");
+    pushToast?.(
+      `${nextStatus === "archived" ? "Archived" : "Unarchived"} "${
+        job.title
+      }" (temp)`,
+      "ok"
+    );
   }
 
-  /* PERFORM A LOCAL MOVE BY SWAPPING ORDER FIELDS */
+  /* Move job up/down in the list temporarily */
   function handleMoveJobOnePosition(job, direction) {
     setJobListForUi((prev) => {
       const snapshot = [...prev];
@@ -324,30 +386,33 @@ export default function JobsPage() {
       const orderA = a.order ?? index;
       const orderB = b.order ?? swapIndex;
 
-      /* REMEMBER SWAPPED ORDER VALUES IN SESSION PATCH MAP */
+      // Remember swapped order in session patch map
       rememberSessionScopedEdit(a.id, { order: orderB });
       rememberSessionScopedEdit(b.id, { order: orderA });
 
-      /* REBUILD WITH SORT APPLIED */
+      // Rebuild sorted list
       return applySessionPatchesAndSortByOrder(snapshot);
     });
 
     pushToast?.(`Moved "${job.title}" ${direction} (temp)`, "ok");
   }
 
-  /* MARK A JOB AS TEMPORARILY DELETED AND REMOVE FROM VISIBLE LIST */
+  /* Temporarily delete a job */
   function handleTemporaryDelete(job) {
     rememberSessionScopedEdit(job.id, { __deleted: true });
     setJobListForUi((prev) => prev.filter((j) => j.id !== job.id));
     pushToast?.(`Deleted "${job.title}" (temp)`, "ok");
   }
 
+  /* -----------------------------
+     RENDER
+     ----------------------------- */
   return (
     <div className="space-y-4">
-      {/* TOASTS RENDER TARGET */}
+      {/* TOASTS */}
       <Toasts />
 
-      {/* SEARCH INPUT AND NEW-JOB CTA (HR ONLY) */}
+      {/* SEARCH INPUT + NEW JOB BUTTON (HR ONLY) */}
       <div className="flex items-center justify-between bg-white border rounded-2xl p-3 shadow-sm">
         <input
           value={searchQueryText}
@@ -365,7 +430,7 @@ export default function JobsPage() {
         )}
       </div>
 
-      {/* JOB LIST WITH PER-ROW ACTIONS; EMPTY STATE WHEN NO MATCHES */}
+      {/* JOB LIST */}
       <div className="space-y-3">
         {jobListForUi.length === 0 ? (
           <div className="text-center text-slate-500 py-10">No jobs found</div>
@@ -377,7 +442,7 @@ export default function JobsPage() {
               isHR={isHrRoute}
               isJobSeeker={isJobSeekerRoute}
               onRowClick={(j) => {
-                /* NAVIGATE TO A ROLE-SCOPED DETAILS ROUTE */
+                // Navigate to job details with role-aware route
                 const base = isJobSeekerRoute ? "/jobseeker/jobs" : "/hr/jobs";
                 navigate(`${base}/${j.id}`, {
                   state: {
@@ -391,8 +456,8 @@ export default function JobsPage() {
                   state: { title: j.title, company: j.company },
                 })
               }
-              onEdit={(j) => setJobRecordCurrentlyBeingEdited(j)}          /* OPEN EDIT MODAL */
-              onDelete={(j) => isHrRoute && handleTemporaryDelete(j)}      /* TEMP DELETE */
+              onEdit={(j) => setJobRecordCurrentlyBeingEdited(j)}
+              onDelete={(j) => isHrRoute && handleTemporaryDelete(j)}
               onToggleArchive={handleToggleArchiveStatus}
               onMoveUp={(j) => handleMoveJobOnePosition(j, "up")}
               onMoveDown={(j) => handleMoveJobOnePosition(j, "down")}
@@ -403,27 +468,31 @@ export default function JobsPage() {
         )}
       </div>
 
-      {/* EDIT MODAL MOUNTED FOR HR ONLY */}
+      {/* EDIT MODAL (HR ONLY) */}
       {jobRecordCurrentlyBeingEdited && isHrRoute && (
         <EditJobModal
           job={jobRecordCurrentlyBeingEdited}
           onClose={() => setJobRecordCurrentlyBeingEdited(null)}
           onSave={(updated) => {
-            /* REMEMBER TITLE/COMPANY PATCH IN SESSION STORE */
+            // Save session-only patch for title/company
             rememberSessionScopedEdit(updated.id, {
               title: updated.title,
               company: updated.company,
             });
 
-            /* UPDATE VISIBLE LIST IMMEDIATELY */
+            // Update visible list immediately
             setJobListForUi((prev) =>
               applySessionPatchesAndSortByOrder(
-                prev.map((j) => (j.id === updated.id ? { ...j, ...updated } : j))
+                prev.map((j) =>
+                  j.id === updated.id ? { ...j, ...updated } : j
+                )
               )
             );
 
             setJobRecordCurrentlyBeingEdited(null);
-            useToastStore.getState().push?.(`Updated "${updated.title}" (temp)`, "ok");
+            useToastStore
+              .getState()
+              .push?.(`Updated "${updated.title}" (temp)`, "ok");
           }}
         />
       )}
